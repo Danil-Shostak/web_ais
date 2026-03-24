@@ -64,21 +64,14 @@ const CONFIG = {
     ]
 };
 
-// Инициализация Supabase клиента при загрузке страницы
-window.addEventListener('DOMContentLoaded', function() {
-    // Даём время скриптам загрузиться
-    setTimeout(function() {
-        if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
-            window.supabase = window.supabase.createClient(
-                CONFIG.supabase.url,
-                CONFIG.supabase.anonKey
-            );
-            console.log('Supabase клиент инициализирован');
-        } else {
-            console.error('Supabase SDK не загружен');
-        }
-    }, 500);
-});
+// Инициализация Supabase
+if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+    window.supabase = window.supabase.createClient(
+        CONFIG.supabase.url,
+        CONFIG.supabase.anonKey
+    );
+    console.log('Supabase инициализирован');
+}
 
 // Функция для получения базового URL API
 const API_URL = CONFIG.supabase.url + '/rest/v1';
