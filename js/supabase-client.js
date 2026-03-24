@@ -172,7 +172,7 @@ class SupabaseClient {
     }
     
     // SELECT - получение данных
-    async from(table) {
+    from(table) {
         return new QueryBuilder(this, table);
     }
     
@@ -320,6 +320,20 @@ class QueryBuilder {
     }
     
     // Выполнение запроса
+    async execute() {
+        // Построение URL с параметрами
+        let url = `${this.table}?select=${this.selectQuery}`;
+        
+        for (const [key, value] of Object.entries(this.queryParams)) {
+            if (key !== 'select') {
+                url += `&${key}=${value}`;
+            }
+        }
+        
+        return await this.client.request('GET', url);
+    }
+    
+    // Выполнение запроса (алиас для совместимости)
     async then(resolve, reject) {
         try {
             // Построение URL с параметрами
