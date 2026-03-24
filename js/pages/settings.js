@@ -25,7 +25,7 @@ const settingsPage = {
                         <li><a href="#" onclick="settingsPage.showSection('profile')" class="active" data-section="profile">Профиль</a></li>
                         <li><a href="#" onclick="settingsPage.showSection('security')" data-section="security">Безопасность</a></li>
                         <li><a href="#" onclick="settingsPage.showSection('notifications')" data-section="notifications">Уведомления</a></li>
-                        ${hasRole('admin') ? '<li><a href="#" onclick="settingsPage.showSection('system')" data-section="system">Системные настройки</a></li>' : ''}
+                        ${hasRole('admin') ? '<li><a href="#" onclick="settingsPage.showSection(\'system\')" data-section="system">Системные настройки</a></li>' : ''}
                     </ul>
                 </div>
                 

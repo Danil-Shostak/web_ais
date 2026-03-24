@@ -7,6 +7,13 @@ let currentUser = null;
 
 // Инициализация аутентификации
 async function initAuth() {
+    // Проверка загрузки supabase
+    if (typeof supabase === 'undefined') {
+        console.log('Waiting for supabase to load...');
+        setTimeout(initAuth, 100);
+        return;
+    }
+    
     const token = supabase.getAuthToken();
     
     if (token) {
