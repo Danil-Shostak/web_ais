@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 // Обработчик ошибок
 window.onerror = function(message, source, lineno, colno, error) {
     console.error('Global error:', message, source, lineno, colno, error);
-    
+     
     // Логирование ошибки
     if (currentUser) {
         api.createLog({

@@ -424,6 +424,12 @@ const api = {
     
     // Создание записи лога
     async createLog(data) {
+        // Проверка на пустые данные
+        if (!data || !data.user_id) {
+            console.warn('createLog called with invalid data, skipping');
+            return;
+        }
+        
         try {
             const { error } = await supabase
                 .from('logs')
