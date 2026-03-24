@@ -1,5 +1,5 @@
 // ========================================
-// Модуль аутентификации и авторизации (локальная версия)
+// Модуль аутентификации и авторизации (Supabase версия)
 // ========================================
 
 // Текущий пользователь
@@ -7,21 +7,33 @@ let currentUser = null;
 
 // Инициализация аутентификации
 async function initAuth() {
-    // Проверка загрузки db
-    if (typeof db === 'undefined' || !db.initialized) {
-        console.log('Waiting for database to load...');
+    // Проверка наличия supabase
+    if (typeof supabase === 'undefined') {
+        console.log('Waiting for Supabase client to load...');
         setTimeout(initAuth, 100);
         return;
     }
     
     // Проверка сохраненной сессии
     const savedUser = localStorage.getItem('current_user');
+    const authToken = localStorage.getItem('authToken');
     
-    if (savedUser) {
+    if (savedUser && authToken) {
         try {
+            // Проверка валидности токена через Supabase
+            const { data: { user }, error } = await supabase.auth.getUser();
+            
+            if (error || !user) {
+                // Токен невалиден, удаляем и показываем логин
+                localStorage.removeItem('current_user');
+                localStorage.removeItem('authToken');
+                showLogin();
+                return;
+            }
+            
             currentUser = JSON.parse(savedUser);
-            // Загрузка профиля пользователя
-            const profile = await api.getProfile(currentUser.id);
+            // Загрузка профиля пользователя из Supabase
+            const profile = await api.getProfile(user.id);
             if (profile) {
                 currentUser.profile = profile;
             }
@@ -29,6 +41,7 @@ async function initAuth() {
         } catch (error) {
             console.error('Auth init error:', error);
             localStorage.removeItem('current_user');
+            localStorage.removeItem('authToken');
             showLogin();
         }
     } else {
@@ -92,61 +105,63 @@ async function handleLogin(event) {
     showLoader();
     
     try {
-        // Поиск пользователя в локальной базе
-        const user = db.getOne('SELECT * FROM users WHERE email = ?', [email]);
+        // Вход через Supabase Auth
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
         
-        if (!user) {
-            throw new Error('Пользователь не найден');
+        if (error) throw error;
+        
+        // Получение данных пользователя
+        const user = data.user;
+        const session = data.session;
+        
+        // Сохранение токена
+        if (rememberMe) {
+            localStorage.setItem('authToken', session.access_token);
+        } else {
+            sessionStorage.setItem('authToken', session.access_token);
         }
         
-        // Проверка пароля (простая проверка, в реальном приложении нужно хэширование)
-        if (user.password !== password) {
-            throw new Error('Неверный пароль');
-        }
+        // Загрузка профиля из profiles таблицы
+        const profile = await api.getProfile(user.id);
         
-        // Установка текущего пользователя
         currentUser = {
             id: user.id,
             email: user.email,
-            full_name: user.full_name,
-            role: user.role
+            full_name: profile?.full_name || user.email.split('@')[0],
+            role: profile?.role || 'user',
+            profile: profile
         };
         
-        // Загрузка профиля
-        const profile = await api.getProfile(user.id);
-        if (profile) {
-            currentUser.profile = profile;
-        } else {
-            // Создание профиля при первом входе
-            await api.createProfile({
-                user_id: user.id,
-                full_name: user.full_name || email.split('@')[0],
-                role: user.role
-            });
-            currentUser.profile = { role: user.role };
-        }
-        
-        // Сохранение сессии
-        if (rememberMe) {
-            localStorage.setItem('current_user', JSON.stringify(currentUser));
-        }
+        localStorage.setItem('current_user', JSON.stringify(currentUser));
         
         // Логирование
-        await api.createLog({
-            user_id: currentUser.id,
+        api.createLog({
+            user_id: user.id,
             action: 'login',
-            details: 'Вход в систему'
-        });
+            details: 'Успешный вход в систему'
+        }).catch(console.error);
         
         showApp();
-        showNotification('success', 'Добро пожаловать в систему!');
+        showNotification('success', 'Добро пожаловать!');
         
     } catch (error) {
         console.error('Login error:', error);
-        showNotification('error', 'Ошибка входа: ' + (error.message || 'Неверные учетные данные'));
+        hideLoader();
+        
+        let errorMessage = 'Ошибка входа';
+        if (error.message.includes('Invalid login credentials')) {
+            errorMessage = 'Неверный email или пароль';
+        } else if (error.message.includes('Email not confirmed')) {
+            errorMessage = 'Email не подтвержден';
+        } else {
+            errorMessage = error.message;
+        }
+        
+        showError('loginPasswordError', errorMessage);
     }
-    
-    hideLoader();
 }
 
 // Обработка регистрации
@@ -160,6 +175,7 @@ async function handleRegister(event) {
     
     // Валидация
     clearErrors();
+    
     let hasError = false;
     
     if (!name.trim()) {
@@ -188,44 +204,67 @@ async function handleRegister(event) {
     showLoader();
     
     try {
-        // Проверка, что пользователь с таким email не существует
-        const existingUser = db.getOne('SELECT id FROM users WHERE email = ?', [email]);
-        
-        if (existingUser) {
-            throw new Error('Пользователь с таким email уже существует');
-        }
-        
-        // Создание нового пользователя
-        const userId = db.generateId();
-        
-        const sql = `
-            INSERT INTO users (id, email, password, full_name, role)
-            VALUES (?, ?, ?, ?, ?)
-        `;
-        
-        db.run(sql, [userId, email, password, name, 'user']);
-        
-        // Создание профиля
-        await api.createProfile({
-            user_id: userId,
-            full_name: name,
-            role: 'user'
+        // Регистрация через Supabase Auth
+        const { data, error } = await supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: {
+                    full_name: name
+                }
+            }
         });
         
-        showNotification('success', 'Регистрация успешна! Теперь вы можете войти в систему.');
+        if (error) throw error;
         
-        // Переключение на вкладку входа
-        showLoginTab('login');
+        // Если email требует подтверждения
+        if (data.user && !data.session) {
+            hideLoader();
+            showNotification('info', 'На ваш email отправлена ссылка для подтверждения. Пожалуйста, проверьте почту.');
+            showLoginTab('login');
+            return;
+        }
         
-        // Очистка формы регистрации
-        document.getElementById('registerForm').reset();
+        // Создание профиля в profiles таблице
+        if (data.user) {
+            await api.createProfile({
+                user_id: data.user.id,
+                full_name: name,
+                role: 'user'
+            });
+        }
+        
+        hideLoader();
+        showNotification('success', 'Регистрация успешна! Добро пожаловать!');
+        
+        // Автоматический вход
+        if (data.session) {
+            currentUser = {
+                id: data.user.id,
+                email: data.user.email,
+                full_name: name,
+                role: 'user'
+            };
+            
+            localStorage.setItem('authToken', data.session.access_token);
+            localStorage.setItem('current_user', JSON.stringify(currentUser));
+            
+            showApp();
+        }
         
     } catch (error) {
-        console.error('Registration error:', error);
-        showNotification('error', 'Ошибка регистрации: ' + (error.message || 'Попробуйте позже'));
+        console.error('Register error:', error);
+        hideLoader();
+        
+        let errorMessage = 'Ошибка регистрации';
+        if (error.message.includes('User already registered')) {
+            errorMessage = 'Пользователь с таким email уже существует';
+        } else {
+            errorMessage = error.message;
+        }
+        
+        showError('registerEmailError', errorMessage);
     }
-    
-    hideLoader();
 }
 
 // Выход из системы
@@ -240,194 +279,75 @@ async function logout() {
             });
         }
         
-        currentUser = null;
-        localStorage.removeItem('current_user');
-        
-        showLogin();
-        showNotification('info', 'Вы вышли из системы');
+        // Выход из Supabase
+        await supabase.auth.signOut();
         
     } catch (error) {
         console.error('Logout error:', error);
-        showLogin();
-    }
-}
-
-// Проверка роли пользователя
-function hasRole(role) {
-    if (!currentUser) {
-        return false;
     }
     
-    const userRole = currentUser.role || (currentUser.profile && currentUser.profile.role) || 'user';
+    // Очистка локальных данных
+    currentUser = null;
+    localStorage.removeItem('current_user');
+    localStorage.removeItem('authToken');
+    sessionStorage.removeItem('authToken');
     
-    if (role === 'admin') {
-        return userRole === 'admin';
-    }
-    
-    if (role === 'editor') {
-        return userRole === 'admin' || userRole === 'editor';
-    }
-    
-    return true;
+    showLogin();
+    showNotification('info', 'Вы вышли из системы');
 }
 
-// Проверка прав доступа к функции
-function canAccess(feature) {
-    // Администратор имеет доступ ко всему
-    if (hasRole('admin')) {
-        return true;
-    }
-    
-    // Права доступа для разных функций
-    const permissions = {
-        'dashboard': true,
-        'institutions': true,
-        'institutions.edit': hasRole('editor'),
-        'institutions.delete': hasRole('admin'),
-        'students': true,
-        'students.edit': hasRole('editor'),
-        'staff': true,
-        'staff.edit': hasRole('editor'),
-        'statistics': true,
-        'reports': true,
-        'import': hasRole('editor'),
-        'settings': true,
-        'admin': hasRole('admin')
-    };
-    
-    return permissions[feature] || false;
-}
-
-// Переключение между вкладками входа/регистрации
-function showLoginTab(tab) {
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
-    const tabs = document.querySelectorAll('.tab-btn');
-    
-    if (tab === 'login') {
-        loginForm.classList.remove('hidden');
-        registerForm.classList.add('hidden');
-        tabs[0].classList.add('active');
-        tabs[1].classList.remove('active');
-    } else {
-        loginForm.classList.add('hidden');
-        registerForm.classList.remove('hidden');
-        tabs[0].classList.remove('active');
-        tabs[1].classList.add('active');
-    }
-}
-
-// Загрузка навигации в зависимости от роли
-function loadNavigation() {
-    const navMenu = document.getElementById('navMenu');
-    
-    const menuItems = [
-        {
-            id: 'dashboard',
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>',
-            label: 'Дашборд',
-            access: 'dashboard'
-        },
-        {
-            id: 'institutions',
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"></path></svg>',
-            label: 'Учреждения',
-            access: 'institutions'
-        },
-        {
-            id: 'students',
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
-            label: 'Учащиеся',
-            access: 'students'
-        },
-        {
-            id: 'staff',
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>',
-            label: 'Работники',
-            access: 'staff'
-        },
-        {
-            id: 'statistics',
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>',
-            label: 'Статистика',
-            access: 'statistics'
-        },
-        {
-            id: 'reports',
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>',
-            label: 'Отчеты',
-            access: 'reports'
-        },
-        {
-            id: 'import',
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>',
-            label: 'Импорт данных',
-            access: 'import'
-        },
-        {
-            id: 'settings',
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>',
-            label: 'Настройки',
-            access: 'settings'
-        },
-        {
-            id: 'admin',
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
-            label: 'Администрирование',
-            access: 'admin'
-        }
-    ];
-    
-    // Фильтрация меню по правам доступа
-    const filteredItems = menuItems.filter(item => canAccess(item.access));
-    
-    navMenu.innerHTML = filteredItems.map(item => `
-        <li>
-            <a href="#" onclick="navigateTo('${item.id}')" data-page="${item.id}">
-                ${item.icon}
-                <span>${item.label}</span>
-            </a>
-        </li>
-    `).join('');
-}
-
-// Показать настройки профиля
-function showProfileSettings() {
-    navigateTo('settings');
-}
-
-// Смена пароля пользователя
-async function changePassword(currentPassword, newPassword) {
+// Обновление пароля
+async function updatePassword(currentPassword, newPassword) {
     try {
-        if (!currentUser) {
-            showNotification('error', 'Пользователь не авторизован');
-            return false;
-        }
+        // Проверка текущего пароля через повторный вход
+        const { error: verifyError } = await supabase.auth.signInWithPassword({
+            email: currentUser.email,
+            password: currentPassword
+        });
         
-        // Получение текущего пароля
-        const user = db.getOne('SELECT password FROM users WHERE id = ?', [currentUser.id]);
-        
-        if (!user || user.password !== currentPassword) {
-            showNotification('error', 'Неверный текущий пароль');
-            return false;
-        }
+        if (verifyError) throw new Error('Неверный текущий пароль');
         
         // Обновление пароля
-        db.run('UPDATE users SET password = ? WHERE id = ?', [newPassword, currentUser.id]);
+        const { error: updateError } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+        
+        if (updateError) throw updateError;
         
         showNotification('success', 'Пароль успешно изменен');
         return true;
     } catch (error) {
-        showNotification('error', 'Ошибка смены пароля');
+        console.error('Update password error:', error);
+        showNotification('error', error.message);
         return false;
     }
 }
 
-// Экспорт
-window.auth = {
-    currentUser: () => currentUser,
-    hasRole: hasRole,
-    canAccess: canAccess,
-    logout: logout,
-    changePassword: changePassword
-};
+// Проверка доступа
+function canAccess(permission) {
+    if (!currentUser) return false;
+    
+    const role = currentUser.role || currentUser.profile?.role;
+    
+    // Ролевая система доступа
+    const permissions = {
+        admin: ['*'],
+        editor: ['dashboard.view', 'institutions.view', 'institutions.edit', 'students.view', 'students.edit', 'staff.view', 'staff.edit', 'statistics.view', 'reports.view', 'import.view'],
+        user: ['dashboard.view', 'institutions.view', 'students.view', 'staff.view', 'statistics.view']
+    };
+    
+    const rolePermissions = permissions[role] || [];
+    
+    return rolePermissions.includes('*') || rolePermissions.includes(permission);
+}
+
+// Глобальные функции
+window.handleLogin = handleLogin;
+window.handleRegister = handleRegister;
+window.logout = logout;
+window.canAccess = canAccess;
+window.updatePassword = updatePassword;
+window.showLogin = showLogin;
+window.showApp = showApp;
+window.updateUserInfo = updateUserInfo;
+window.currentUser = currentUser;

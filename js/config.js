@@ -5,8 +5,8 @@
 const CONFIG = {
     // Настройки Supabase
     supabase: {
-        url: 'https://fmmyqgqsjepulzxjaova.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtbXlxZ3FzamVwdWx6eGphb3ZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzA2MDgsImV4cCI6MjA4OTk0NjYwOH0.L0_hNPOK-MO0r9Pr6bXmm566LN4tWz-oQxg4CAqvMCE'
+        url: 'https://ohjftdvryldrdkerxvsa.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oamZ0ZHZyeWxkcmRrZXJ4dnNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzODE0MTcsImV4cCI6MjA4OTk1NzQxN30.3WZ-_GMNTnrUOcWJpwcgcvVrWG-ZgwHopVEMLRrq9TQ'
     },
     
     // Настройки приложения
@@ -63,6 +63,22 @@ const CONFIG = {
         'Нарушения'
     ]
 };
+
+// Инициализация Supabase клиента при загрузке страницы
+window.addEventListener('DOMContentLoaded', function() {
+    // Даём время скриптам загрузиться
+    setTimeout(function() {
+        if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
+            window.supabase = window.supabase.createClient(
+                CONFIG.supabase.url,
+                CONFIG.supabase.anonKey
+            );
+            console.log('Supabase клиент инициализирован');
+        } else {
+            console.error('Supabase SDK не загружен');
+        }
+    }, 500);
+});
 
 // Функция для получения базового URL API
 const API_URL = CONFIG.supabase.url + '/rest/v1';

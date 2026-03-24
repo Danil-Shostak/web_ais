@@ -7,11 +7,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('Инициализация приложения...');
     
     try {
-        // Инициализация локальной базы данных SQLite
-        await db.init();
-        console.log('База данных инициализирована');
-        
-        // Инициализация аутентификации
+        // Инициализация аутентификации (использует Supabase)
         await initAuth();
     } catch (error) {
         console.error('Ошибка инициализации:', error);

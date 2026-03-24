@@ -1,5 +1,5 @@
 // ========================================
-// API модуль для работы с локальной базой данных SQLite
+// API модуль для работы с Supabase
 // ========================================
 
 // API функции для работы с учреждениями образования
@@ -9,38 +9,35 @@ const api = {
     // Получение всех учреждений
     async getInstitutions(filters = {}) {
         try {
-            let sql = 'SELECT * FROM institutions WHERE 1=1';
-            const params = [];
-
+            let query = supabase.from('institutions').select('*');
+            
             if (filters.type) {
-                sql += ' AND type = ?';
-                params.push(filters.type);
+                query = query.eq('type', filters.type);
             }
             if (filters.region) {
-                sql += ' AND region = ?';
-                params.push(filters.region);
+                query = query.eq('region', filters.region);
             }
             if (filters.search) {
-                sql += ' AND name LIKE ?';
-                params.push(`%${filters.search}%`);
+                query = query.ilike('name', `%${filters.search}%`);
             }
-
+            
             if (filters.sortBy) {
-                sql += ` ORDER BY ${filters.sortBy} ${filters.sortAsc !== false ? 'ASC' : 'DESC'}`;
+                query = query.order(filters.sortBy, { ascending: filters.sortAsc !== false });
             } else {
-                sql += ' ORDER BY name ASC';
+                query = query.order('name', { ascending: true });
             }
-
+            
             if (filters.limit) {
-                sql += ' LIMIT ?';
-                params.push(filters.limit);
+                query = query.limit(filters.limit);
             }
             if (filters.offset) {
-                sql += ' OFFSET ?';
-                params.push(filters.offset);
+                query = query.range(filters.offset, filters.offset + (filters.limit || 20) - 1);
             }
-
-            return db.query(sql, params);
+            
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            return data || [];
         } catch (error) {
             console.error('Error fetching institutions:', error);
             throw error;
@@ -50,7 +47,14 @@ const api = {
     // Получение учреждения по ID
     async getInstitutionById(id) {
         try {
-            return db.getOne('SELECT * FROM institutions WHERE id = ?', [id]);
+            const { data, error } = await supabase
+                .from('institutions')
+                .select('*')
+                .eq('id', id)
+                .single();
+            
+            if (error) throw error;
+            return data;
         } catch (error) {
             console.error('Error fetching institution:', error);
             throw error;
@@ -60,19 +64,14 @@ const api = {
     // Создание учреждения
     async createInstitution(data) {
         try {
-            const sql = `
-                INSERT INTO institutions (name, type, region, address, phone, email, website, description)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-            const result = db.run(sql, [
-                data.name, data.type, data.region, data.address, 
-                data.phone, data.email, data.website, data.description
-            ]);
+            const { data: result, error } = await supabase
+                .from('institutions')
+                .insert([data])
+                .select()
+                .single();
             
-            if (result.success) {
-                return { id: db.getLastInsertId(), ...data };
-            }
-            throw result.error;
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error creating institution:', error);
             throw error;
@@ -82,21 +81,15 @@ const api = {
     // Обновление учреждения
     async updateInstitution(id, data) {
         try {
-            const fields = [];
-            const values = [];
+            const { data: result, error } = await supabase
+                .from('institutions')
+                .update(data)
+                .eq('id', id)
+                .select()
+                .single();
             
-            for (const [key, value] of Object.entries(data)) {
-                if (key !== 'id') {
-                    fields.push(`${key} = ?`);
-                    values.push(value);
-                }
-            }
-            
-            if (fields.length === 0) return { success: false };
-            
-            values.push(id);
-            const sql = `UPDATE institutions SET ${fields.join(', ')} WHERE id = ?`;
-            return db.run(sql, values);
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error updating institution:', error);
             throw error;
@@ -107,10 +100,17 @@ const api = {
     async deleteInstitution(id) {
         try {
             // Удаление связанных записей
-            db.run('DELETE FROM students WHERE institution_id = ?', [id]);
-            db.run('DELETE FROM staff WHERE institution_id = ?', [id]);
-            db.run('DELETE FROM statistics WHERE institution_id = ?', [id]);
-            return db.run('DELETE FROM institutions WHERE id = ?', [id]);
+            await supabase.from('students').delete().eq('institution_id', id);
+            await supabase.from('staff').delete().eq('institution_id', id);
+            await supabase.from('statistics').delete().eq('institution_id', id);
+            
+            const { error } = await supabase
+                .from('institutions')
+                .delete()
+                .eq('id', id);
+            
+            if (error) throw error;
+            return { success: true };
         } catch (error) {
             console.error('Error deleting institution:', error);
             throw error;
@@ -122,34 +122,31 @@ const api = {
     // Получение всех учащихся
     async getStudents(filters = {}) {
         try {
-            let sql = 'SELECT * FROM students WHERE 1=1';
-            const params = [];
-
+            let query = supabase.from('students').select('*');
+            
             if (filters.institution_id) {
-                sql += ' AND institution_id = ?';
-                params.push(filters.institution_id);
+                query = query.eq('institution_id', filters.institution_id);
             }
             if (filters.grade) {
-                sql += ' AND grade = ?';
-                params.push(filters.grade);
+                query = query.eq('grade', filters.grade);
             }
             if (filters.search) {
-                sql += ' AND full_name LIKE ?';
-                params.push(`%${filters.search}%`);
+                query = query.ilike('full_name', `%${filters.search}%`);
             }
-
-            sql += ' ORDER BY full_name ASC';
-
+            
+            query = query.order('full_name', { ascending: true });
+            
             if (filters.limit) {
-                sql += ' LIMIT ?';
-                params.push(filters.limit);
+                query = query.limit(filters.limit);
             }
             if (filters.offset) {
-                sql += ' OFFSET ?';
-                params.push(filters.offset);
+                query = query.range(filters.offset, filters.offset + (filters.limit || 20) - 1);
             }
-
-            return db.query(sql, params);
+            
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            return data || [];
         } catch (error) {
             console.error('Error fetching students:', error);
             throw error;
@@ -159,7 +156,14 @@ const api = {
     // Получение учащегося по ID
     async getStudentById(id) {
         try {
-            return db.getOne('SELECT * FROM students WHERE id = ?', [id]);
+            const { data, error } = await supabase
+                .from('students')
+                .select('*')
+                .eq('id', id)
+                .single();
+            
+            if (error) throw error;
+            return data;
         } catch (error) {
             console.error('Error fetching student:', error);
             throw error;
@@ -169,19 +173,14 @@ const api = {
     // Создание учащегося
     async createStudent(data) {
         try {
-            const sql = `
-                INSERT INTO students (full_name, birth_date, gender, grade, institution_id, address, parent_phone)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            `;
-            const result = db.run(sql, [
-                data.full_name, data.birth_date, data.gender, data.grade,
-                data.institution_id, data.address, data.parent_phone
-            ]);
+            const { data: result, error } = await supabase
+                .from('students')
+                .insert([data])
+                .select()
+                .single();
             
-            if (result.success) {
-                return { id: db.getLastInsertId(), ...data };
-            }
-            throw result.error;
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error creating student:', error);
             throw error;
@@ -191,21 +190,15 @@ const api = {
     // Обновление учащегося
     async updateStudent(id, data) {
         try {
-            const fields = [];
-            const values = [];
+            const { data: result, error } = await supabase
+                .from('students')
+                .update(data)
+                .eq('id', id)
+                .select()
+                .single();
             
-            for (const [key, value] of Object.entries(data)) {
-                if (key !== 'id') {
-                    fields.push(`${key} = ?`);
-                    values.push(value);
-                }
-            }
-            
-            if (fields.length === 0) return { success: false };
-            
-            values.push(id);
-            const sql = `UPDATE students SET ${fields.join(', ')} WHERE id = ?`;
-            return db.run(sql, values);
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error updating student:', error);
             throw error;
@@ -215,7 +208,13 @@ const api = {
     // Удаление учащегося
     async deleteStudent(id) {
         try {
-            return db.run('DELETE FROM students WHERE id = ?', [id]);
+            const { error } = await supabase
+                .from('students')
+                .delete()
+                .eq('id', id);
+            
+            if (error) throw error;
+            return { success: true };
         } catch (error) {
             console.error('Error deleting student:', error);
             throw error;
@@ -227,34 +226,31 @@ const api = {
     // Получение всех работников
     async getStaff(filters = {}) {
         try {
-            let sql = 'SELECT * FROM staff WHERE 1=1';
-            const params = [];
-
+            let query = supabase.from('staff').select('*');
+            
             if (filters.institution_id) {
-                sql += ' AND institution_id = ?';
-                params.push(filters.institution_id);
+                query = query.eq('institution_id', filters.institution_id);
             }
             if (filters.position) {
-                sql += ' AND position = ?';
-                params.push(filters.position);
+                query = query.eq('position', filters.position);
             }
             if (filters.search) {
-                sql += ' AND full_name LIKE ?';
-                params.push(`%${filters.search}%`);
+                query = query.ilike('full_name', `%${filters.search}%`);
             }
-
-            sql += ' ORDER BY full_name ASC';
-
+            
+            query = query.order('full_name', { ascending: true });
+            
             if (filters.limit) {
-                sql += ' LIMIT ?';
-                params.push(filters.limit);
+                query = query.limit(filters.limit);
             }
             if (filters.offset) {
-                sql += ' OFFSET ?';
-                params.push(filters.offset);
+                query = query.range(filters.offset, filters.offset + (filters.limit || 20) - 1);
             }
-
-            return db.query(sql, params);
+            
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            return data || [];
         } catch (error) {
             console.error('Error fetching staff:', error);
             throw error;
@@ -264,7 +260,14 @@ const api = {
     // Получение работника по ID
     async getStaffById(id) {
         try {
-            return db.getOne('SELECT * FROM staff WHERE id = ?', [id]);
+            const { data, error } = await supabase
+                .from('staff')
+                .select('*')
+                .eq('id', id)
+                .single();
+            
+            if (error) throw error;
+            return data;
         } catch (error) {
             console.error('Error fetching staff:', error);
             throw error;
@@ -274,19 +277,14 @@ const api = {
     // Создание работника
     async createStaff(data) {
         try {
-            const sql = `
-                INSERT INTO staff (full_name, position, institution_id, hire_date, education, specialty, phone, email)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `;
-            const result = db.run(sql, [
-                data.full_name, data.position, data.institution_id, data.hire_date,
-                data.education, data.specialty, data.phone, data.email
-            ]);
+            const { data: result, error } = await supabase
+                .from('staff')
+                .insert([data])
+                .select()
+                .single();
             
-            if (result.success) {
-                return { id: db.getLastInsertId(), ...data };
-            }
-            throw result.error;
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error creating staff:', error);
             throw error;
@@ -296,21 +294,15 @@ const api = {
     // Обновление работника
     async updateStaff(id, data) {
         try {
-            const fields = [];
-            const values = [];
+            const { data: result, error } = await supabase
+                .from('staff')
+                .update(data)
+                .eq('id', id)
+                .select()
+                .single();
             
-            for (const [key, value] of Object.entries(data)) {
-                if (key !== 'id') {
-                    fields.push(`${key} = ?`);
-                    values.push(value);
-                }
-            }
-            
-            if (fields.length === 0) return { success: false };
-            
-            values.push(id);
-            const sql = `UPDATE staff SET ${fields.join(', ')} WHERE id = ?`;
-            return db.run(sql, values);
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error updating staff:', error);
             throw error;
@@ -320,7 +312,13 @@ const api = {
     // Удаление работника
     async deleteStaff(id) {
         try {
-            return db.run('DELETE FROM staff WHERE id = ?', [id]);
+            const { error } = await supabase
+                .from('staff')
+                .delete()
+                .eq('id', id);
+            
+            if (error) throw error;
+            return { success: true };
         } catch (error) {
             console.error('Error deleting staff:', error);
             throw error;
@@ -332,29 +330,27 @@ const api = {
     // Получение статистики
     async getStatistics(filters = {}) {
         try {
-            let sql = 'SELECT * FROM statistics WHERE 1=1';
-            const params = [];
-
+            let query = supabase.from('statistics').select('*');
+            
             if (filters.institution_id) {
-                sql += ' AND institution_id = ?';
-                params.push(filters.institution_id);
+                query = query.eq('institution_id', filters.institution_id);
             }
             if (filters.category) {
-                sql += ' AND category = ?';
-                params.push(filters.category);
+                query = query.eq('category', filters.category);
             }
             if (filters.start_date) {
-                sql += ' AND date >= ?';
-                params.push(filters.start_date);
+                query = query.gte('date', filters.start_date);
             }
             if (filters.end_date) {
-                sql += ' AND date <= ?';
-                params.push(filters.end_date);
+                query = query.lte('date', filters.end_date);
             }
-
-            sql += ' ORDER BY date DESC';
-
-            return db.query(sql, params);
+            
+            query = query.order('date', { ascending: false });
+            
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            return data || [];
         } catch (error) {
             console.error('Error fetching statistics:', error);
             throw error;
@@ -364,16 +360,14 @@ const api = {
     // Создание записи статистики
     async createStatistic(data) {
         try {
-            const sql = `
-                INSERT INTO statistics (institution_id, category, value, date)
-                VALUES (?, ?, ?, ?)
-            `;
-            const result = db.run(sql, [data.institution_id, data.category, data.value, data.date]);
+            const { data: result, error } = await supabase
+                .from('statistics')
+                .insert([data])
+                .select()
+                .single();
             
-            if (result.success) {
-                return { id: db.getLastInsertId(), ...data };
-            }
-            throw result.error;
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error creating statistic:', error);
             throw error;
@@ -385,21 +379,21 @@ const api = {
     // Получение всех отчетов
     async getReports(filters = {}) {
         try {
-            let sql = 'SELECT * FROM reports WHERE 1=1';
-            const params = [];
-
+            let query = supabase.from('reports').select('*');
+            
             if (filters.user_id) {
-                sql += ' AND user_id = ?';
-                params.push(filters.user_id);
+                query = query.eq('user_id', filters.user_id);
             }
             if (filters.type) {
-                sql += ' AND type = ?';
-                params.push(filters.type);
+                query = query.eq('type', filters.type);
             }
-
-            sql += ' ORDER BY created_at DESC';
-
-            return db.query(sql, params);
+            
+            query = query.order('created_at', { ascending: false });
+            
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            return data || [];
         } catch (error) {
             console.error('Error fetching reports:', error);
             throw error;
@@ -409,16 +403,17 @@ const api = {
     // Создание отчета
     async createReport(data) {
         try {
-            const sql = `
-                INSERT INTO reports (user_id, type, title, data)
-                VALUES (?, ?, ?, ?)
-            `;
-            const result = db.run(sql, [data.user_id, data.type, data.title, JSON.stringify(data.data)]);
+            const { data: result, error } = await supabase
+                .from('reports')
+                .insert([{
+                    ...data,
+                    data: JSON.stringify(data.data)
+                }])
+                .select()
+                .single();
             
-            if (result.success) {
-                return { id: db.getLastInsertId(), ...data };
-            }
-            throw result.error;
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error creating report:', error);
             throw error;
@@ -430,11 +425,11 @@ const api = {
     // Создание записи лога
     async createLog(data) {
         try {
-            const sql = `
-                INSERT INTO logs (user_id, action, details)
-                VALUES (?, ?, ?)
-            `;
-            return db.run(sql, [data.user_id, data.action, data.details]);
+            const { error } = await supabase
+                .from('logs')
+                .insert([data]);
+            
+            if (error) console.error('Error creating log:', error);
         } catch (error) {
             console.error('Error creating log:', error);
         }
@@ -443,26 +438,25 @@ const api = {
     // Получение логов
     async getLogs(filters = {}) {
         try {
-            let sql = 'SELECT * FROM logs WHERE 1=1';
-            const params = [];
-
+            let query = supabase.from('logs').select('*');
+            
             if (filters.user_id) {
-                sql += ' AND user_id = ?';
-                params.push(filters.user_id);
+                query = query.eq('user_id', filters.user_id);
             }
             if (filters.action) {
-                sql += ' AND action = ?';
-                params.push(filters.action);
+                query = query.eq('action', filters.action);
             }
-
-            sql += ' ORDER BY created_at DESC';
-
+            
+            query = query.order('created_at', { ascending: false });
+            
             if (filters.limit) {
-                sql += ' LIMIT ?';
-                params.push(filters.limit);
+                query = query.limit(filters.limit);
             }
-
-            return db.query(sql, params);
+            
+            const { data, error } = await query;
+            
+            if (error) throw error;
+            return data || [];
         } catch (error) {
             console.error('Error fetching logs:', error);
             throw error;
@@ -474,11 +468,14 @@ const api = {
     // Получение уведомлений пользователя
     async getNotifications(userId) {
         try {
-            return db.query(`
-                SELECT * FROM notifications 
-                WHERE user_id = ? 
-                ORDER BY created_at DESC
-            `, [userId]);
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
         } catch (error) {
             console.error('Error fetching notifications:', error);
             throw error;
@@ -488,16 +485,14 @@ const api = {
     // Создание уведомления
     async createNotification(data) {
         try {
-            const sql = `
-                INSERT INTO notifications (user_id, title, message, read)
-                VALUES (?, ?, ?, ?)
-            `;
-            const result = db.run(sql, [data.user_id, data.title, data.message, 0]);
+            const { data: result, error } = await supabase
+                .from('notifications')
+                .insert([{ ...data, read: false }])
+                .select()
+                .single();
             
-            if (result.success) {
-                return { id: db.getLastInsertId(), ...data };
-            }
-            throw result.error;
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error creating notification:', error);
             throw error;
@@ -507,7 +502,13 @@ const api = {
     // Отметка уведомления как прочитанного
     async markNotificationRead(id) {
         try {
-            return db.run('UPDATE notifications SET read = 1 WHERE id = ?', [id]);
+            const { error } = await supabase
+                .from('notifications')
+                .update({ read: true })
+                .eq('id', id);
+            
+            if (error) throw error;
+            return { success: true };
         } catch (error) {
             console.error('Error marking notification:', error);
             throw error;
@@ -519,26 +520,35 @@ const api = {
     // Получение профиля пользователя
     async getProfile(userId) {
         try {
-            return db.getOne('SELECT * FROM profiles WHERE user_id = ?', [userId]);
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('user_id', userId)
+                .single();
+            
+            if (error) {
+                // Если профиль не найден, возвращаем null
+                if (error.code === 'PGRST116') return null;
+                throw error;
+            }
+            return data;
         } catch (error) {
             console.error('Error fetching profile:', error);
-            throw error;
+            return null;
         }
     },
     
     // Создание профиля
     async createProfile(data) {
         try {
-            const sql = `
-                INSERT INTO profiles (user_id, full_name, role)
-                VALUES (?, ?, ?)
-            `;
-            const result = db.run(sql, [data.user_id, data.full_name, data.role || 'user']);
+            const { data: result, error } = await supabase
+                .from('profiles')
+                .insert([data])
+                .select()
+                .single();
             
-            if (result.success) {
-                return { id: db.getLastInsertId(), ...data };
-            }
-            throw result.error;
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error creating profile:', error);
             throw error;
@@ -548,21 +558,15 @@ const api = {
     // Обновление профиля
     async updateProfile(userId, data) {
         try {
-            const fields = [];
-            const values = [];
+            const { data: result, error } = await supabase
+                .from('profiles')
+                .update(data)
+                .eq('user_id', userId)
+                .select()
+                .single();
             
-            for (const [key, value] of Object.entries(data)) {
-                if (key !== 'user_id') {
-                    fields.push(`${key} = ?`);
-                    values.push(value);
-                }
-            }
-            
-            if (fields.length === 0) return { success: false };
-            
-            values.push(userId);
-            const sql = `UPDATE profiles SET ${fields.join(', ')} WHERE user_id = ?`;
-            return db.run(sql, values);
+            if (error) throw error;
+            return result;
         } catch (error) {
             console.error('Error updating profile:', error);
             throw error;
@@ -574,7 +578,13 @@ const api = {
     // Получение всех пользователей (для админа)
     async getUsers() {
         try {
-            return db.query('SELECT * FROM users ORDER BY created_at DESC');
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
         } catch (error) {
             console.error('Error fetching users:', error);
             throw error;
@@ -586,10 +596,14 @@ const api = {
     // Получение количества учреждений по типам
     async getInstitutionsCountByType() {
         try {
-            const institutions = db.query('SELECT type FROM institutions');
+            const { data, error } = await supabase
+                .from('institutions')
+                .select('type');
+            
+            if (error) throw error;
             
             const counts = {};
-            institutions.forEach(inst => {
+            data?.forEach(inst => {
                 counts[inst.type] = (counts[inst.type] || 0) + 1;
             });
             
@@ -603,8 +617,12 @@ const api = {
     // Получение общего количества учащихся
     async getTotalStudents() {
         try {
-            const students = db.query('SELECT id FROM students');
-            return students.length;
+            const { count, error } = await supabase
+                .from('students')
+                .select('*', { count: 'exact', head: true });
+            
+            if (error) throw error;
+            return count || 0;
         } catch (error) {
             console.error('Error fetching total students:', error);
             return 0;
@@ -614,8 +632,12 @@ const api = {
     // Получение общего количества работников
     async getTotalStaff() {
         try {
-            const staff = db.query('SELECT id FROM staff');
-            return staff.length;
+            const { count, error } = await supabase
+                .from('staff')
+                .select('*', { count: 'exact', head: true });
+            
+            if (error) throw error;
+            return count || 0;
         } catch (error) {
             console.error('Error fetching total staff:', error);
             return 0;
@@ -627,12 +649,13 @@ const api = {
     // Массовое создание учреждений
     async bulkCreateInstitutions(dataArray) {
         try {
-            const results = [];
-            for (const data of dataArray) {
-                const result = await this.createInstitution(data);
-                results.push(result);
-            }
-            return results;
+            const { data, error } = await supabase
+                .from('institutions')
+                .insert(dataArray)
+                .select();
+            
+            if (error) throw error;
+            return data;
         } catch (error) {
             console.error('Error bulk creating institutions:', error);
             throw error;
@@ -642,12 +665,13 @@ const api = {
     // Массовое создание учащихся
     async bulkCreateStudents(dataArray) {
         try {
-            const results = [];
-            for (const data of dataArray) {
-                const result = await this.createStudent(data);
-                results.push(result);
-            }
-            return results;
+            const { data, error } = await supabase
+                .from('students')
+                .insert(dataArray)
+                .select();
+            
+            if (error) throw error;
+            return data;
         } catch (error) {
             console.error('Error bulk creating students:', error);
             throw error;
@@ -657,12 +681,13 @@ const api = {
     // Массовое создание работников
     async bulkCreateStaff(dataArray) {
         try {
-            const results = [];
-            for (const data of dataArray) {
-                const result = await this.createStaff(data);
-                results.push(result);
-            }
-            return results;
+            const { data, error } = await supabase
+                .from('staff')
+                .insert(dataArray)
+                .select();
+            
+            if (error) throw error;
+            return data;
         } catch (error) {
             console.error('Error bulk creating staff:', error);
             throw error;
