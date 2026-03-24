@@ -371,3 +371,31 @@ window.showApp = showApp;
 window.showLoginTab = showLoginTab;
 window.updateUserInfo = updateUserInfo;
 window.currentUser = currentUser;
+
+// Функция для назначения текущего пользователя админом
+window.makeMeAdmin = async function() {
+    try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        if (!user) { alert('Вы не авторизованы!'); return; }
+        
+        console.log('Ваш user_id:', user.id);
+        
+        // Проверяем есть ли профиль
+        const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+        
+        if (existingProfile) {
+            await supabase.from('profiles').update({ role: 'admin' }).eq('user_id', user.id);
+            alert('Вы назначены админом!');
+        } else {
+            await supabase.from('profiles').insert([{ user_id: user.id, full_name: user.email.split('@')[0], role: 'admin' }]);
+            alert('Профиль создан с правами админа!');
+        }
+    } catch (error) {
+        alert('Ошибка: ' + error.message + '\n\nСначала создайте таблицы в Supabase!');
+    }
+};
