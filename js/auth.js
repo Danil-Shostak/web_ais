@@ -371,3 +371,10 @@ window.showApp = showApp;
 window.showLoginTab = showLoginTab;
 window.updateUserInfo = updateUserInfo;
 window.currentUser = currentUser;
+
+// Функция проверки роли
+function hasRole(role) {
+    const userRole = currentUser?.role || currentUser?.profile?.role;
+    return userRole === role || userRole === 'admin';
+}
+window.hasRole = hasRole;
