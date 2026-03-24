@@ -72,6 +72,25 @@ function showApp() {
     navigateTo('dashboard');
 }
 
+// Переключение между вкладками входа и регистрации
+function showLoginTab(tabName) {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const tabs = document.querySelectorAll('.tab-btn');
+    
+    if (tabName === 'login') {
+        loginForm.classList.remove('hidden');
+        registerForm.classList.add('hidden');
+        tabs[0].classList.add('active');
+        tabs[1].classList.remove('active');
+    } else {
+        loginForm.classList.add('hidden');
+        registerForm.classList.remove('hidden');
+        tabs[0].classList.remove('active');
+        tabs[1].classList.add('active');
+    }
+}
+
 // Обновление информации о пользователе
 function updateUserInfo() {
     if (currentUser) {
@@ -349,5 +368,6 @@ window.canAccess = canAccess;
 window.updatePassword = updatePassword;
 window.showLogin = showLogin;
 window.showApp = showApp;
+window.showLoginTab = showLoginTab;
 window.updateUserInfo = updateUserInfo;
 window.currentUser = currentUser;
