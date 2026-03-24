@@ -64,16 +64,13 @@ const CONFIG = {
     ]
 };
 
-// Инициализация Supabase клиента (исправлено)
-if (typeof supabase !== 'undefined' && supabase.createClient) {
-    window.supabaseClient = supabase.createClient(
+// Инициализация Supabase
+if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+    window.supabase = window.supabase.createClient(
         CONFIG.supabase.url,
         CONFIG.supabase.anonKey
     );
-    console.log('Supabase клиент инициализирован');
-    console.log('Supabase URL:', CONFIG.supabase.url);
-} else {
-    console.error('Supabase SDK не загружен! Проверьте подключение скрипта.');
+    console.log('Supabase инициализирован');
 }
 
 // Функция для получения базового URL API
@@ -87,29 +84,3 @@ const API_OPTIONS = {
         'Prefer': 'return=representation'
     }
 };
-
-// Вспомогательная функция для проверки подключения
-async function testSupabaseConnection() {
-    try {
-        const { data, error } = await window.supabaseClient
-            .from('your_table_name')
-            .select('count')
-            .limit(1);
-        
-        if (error) {
-            console.error('Ошибка подключения к Supabase:', error);
-            return false;
-        }
-        
-        console.log('Supabase подключен успешно');
-        return true;
-    } catch (error) {
-        console.error('Ошибка подключения к Supabase:', error);
-        return false;
-    }
-}
-
-// Экспортируем глобальные переменные
-window.CONFIG = CONFIG;
-window.API_URL = API_URL;
-window.API_OPTIONS = API_OPTIONS;

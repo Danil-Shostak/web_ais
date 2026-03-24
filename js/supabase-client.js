@@ -2,10 +2,11 @@
 // Инициализация Supabase клиента
 // ========================================
 
-// Supabase SDK уже создаёт глобальную переменную supabase
-// Здесь мы просто убеждаемся, что она доступна
-if (typeof window.supabase !== 'undefined') {
-    console.log('Supabase клиент инициализирован');
-} else {
-    console.error('Supabase SDK не загружен');
-}
+// Создаем Supabase клиент с использованием конфигурации
+const supabase = window.supabase.createClient(
+    CONFIG.supabase.url,
+    CONFIG.supabase.anonKey
+);
+
+console.log('Supabase клиент инициализирован');
+console.log('Supabase URL:', CONFIG.supabase.url);
