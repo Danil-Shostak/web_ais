@@ -4,7 +4,7 @@
 
 class SupabaseClient {
     constructor(url, anonKey) {
-        this.url = https://fmmyqgqsjepulzxjaova.supabase.co;
+        this.url = "https://fmmyqgqsjepulzxjaova.supabase.co;"
         this.anonKey = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtbXlxZ3FzamVwdWx6eGphb3ZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNzA2MDgsImV4cCI6MjA4OTk0NjYwOH0.L0_hNPOK-MO0r9Pr6bXmm566LN4tWz-oQxg4CAqvMCE;
         this.authToken = null;
         
