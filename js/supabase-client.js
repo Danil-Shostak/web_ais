@@ -112,7 +112,8 @@ class SupabaseClient {
     getHeaders() {
         const headers = {
             'Content-Type': 'application/json',
-            'apikey': this.anonKey
+            'apikey': this.anonKey,
+            'Origin': window.location.origin // Добавление заголовка Origin для CORS
         };
         
         const token = this.getAuthToken();
@@ -129,7 +130,8 @@ class SupabaseClient {
         
         const config = {
             method: method,
-            headers: this.getHeaders()
+            headers: this.getHeaders(),
+            mode: 'cors' // Добавление поддержки CORS
         };
         
         if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
@@ -362,3 +364,6 @@ class QueryBuilder {
 
 // Создание экземпляра клиента
 const supabase = new SupabaseClient(CONFIG.supabase.url, CONFIG.supabase.anonKey);
+
+// Экспорт в глобальную область видимости для использования в других скриптах
+window.supabase = supabase;
