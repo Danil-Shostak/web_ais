@@ -64,15 +64,6 @@ const CONFIG = {
     ]
 };
 
-// Инициализация Supabase
-if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-    window.supabase = window.supabase.createClient(
-        CONFIG.supabase.url,
-        CONFIG.supabase.anonKey
-    );
-    console.log('Supabase инициализирован');
-}
-
 // Функция для получения базового URL API
 const API_URL = CONFIG.supabase.url + '/rest/v1';
 
