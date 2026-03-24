@@ -7,6 +7,85 @@ class SupabaseClient {
         this.url = url;
         this.anonKey = anonKey;
         this.authToken = null;
+        
+        // Объект auth с методами аутентификации
+        this.auth = {
+            signUp: async (email, password) => {
+                const response = await fetch(`${this.url}/auth/v1/signup`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': this.anonKey
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error_description || data.msg || 'Ошибка регистрации');
+                }
+                
+                return data;
+            },
+            
+            signIn: async (email, password) => {
+                const response = await fetch(`${this.url}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': this.anonKey
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error_description || data.msg || 'Ошибка входа');
+                }
+                
+                this.setAuthToken(data.access_token);
+                return data;
+            },
+            
+            signOut: async () => {
+                const token = this.getAuthToken();
+                
+                if (token) {
+                    await fetch(`${this.url}/auth/v1/logout`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                }
+                
+                this.clearAuthToken();
+            },
+            
+            getUser: async () => {
+                const token = this.getAuthToken();
+                
+                if (!token) {
+                    return null;
+                }
+                
+                const response = await fetch(`${this.url}/auth/v1/user`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'apikey': this.anonKey
+                    }
+                });
+                
+                if (!response.ok) {
+                    return null;
+                }
+                
+                return await response.json();
+            }
+        };
     }
     
     // Установка токена авторизации
@@ -126,83 +205,6 @@ class SupabaseClient {
         }
         
         return params.join('&');
-    }
-    
-    // Аутентификация
-    async auth.signUp(email, password) {
-        const response = await fetch(`${this.url}/auth/v1/signup`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': this.anonKey
-            },
-            body: JSON.stringify({ email, password })
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error_description || data.msg || 'Ошибка регистрации');
-        }
-        
-        return data;
-    }
-    
-    async auth.signIn(email, password) {
-        const response = await fetch(`${this.url}/auth/v1/token?grant_type=password`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': this.anonKey
-            },
-            body: JSON.stringify({ email, password })
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error_description || data.msg || 'Ошибка входа');
-        }
-        
-        this.setAuthToken(data.access_token);
-        return data;
-    }
-    
-    async auth.signOut() {
-        const token = this.getAuthToken();
-        
-        if (token) {
-            await fetch(`${this.url}/auth/v1/logout`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-        }
-        
-        this.clearAuthToken();
-    }
-    
-    async auth.getUser() {
-        const token = this.getAuthToken();
-        
-        if (!token) {
-            return null;
-        }
-        
-        const response = await fetch(`${this.url}/auth/v1/user`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'apikey': this.anonKey
-            }
-        });
-        
-        if (!response.ok) {
-            return null;
-        }
-        
-        return await response.json();
     }
     
     // RPC - вызов функций
