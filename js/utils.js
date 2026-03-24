@@ -166,6 +166,38 @@ function navigateTo(page) {
     loadPage(page);
 }
 
+// Загрузка навигации
+function loadNavigation() {
+    const navMenu = document.getElementById('navMenu');
+    if (!navMenu) return;
+    
+    const menuItems = [
+        { id: 'dashboard', icon: '📊', label: 'Главная', roles: ['admin', 'editor', 'user'] },
+        { id: 'institutions', icon: '🏫', label: 'Учреждения', roles: ['admin', 'editor', 'user'] },
+        { id: 'students', icon: '👨‍🎓', label: 'Учащиеся', roles: ['admin', 'editor', 'user'] },
+        { id: 'staff', icon: '👨‍🏫', label: 'Работники', roles: ['admin', 'editor', 'user'] },
+        { id: 'statistics', icon: '📈', label: 'Статистика', roles: ['admin', 'editor', 'user'] },
+        { id: 'reports', icon: '📄', label: 'Отчеты', roles: ['admin', 'editor'] },
+        { id: 'import', icon: '📥', label: 'Импорт', roles: ['admin', 'editor'] },
+        { id: 'settings', icon: '⚙️', label: 'Настройки', roles: ['admin', 'editor', 'user'] }
+    ];
+    
+    const userRole = currentUser?.role || 'user';
+    
+    const html = menuItems
+        .filter(item => item.roles.includes(userRole))
+        .map(item => `
+            <li>
+                <a href="#" data-page="${item.id}" onclick="event.preventDefault(); navigateTo('${item.id}')">
+                    <span class="nav-icon">${item.icon}</span>
+                    <span class="nav-label">${item.label}</span>
+                </a>
+            </li>
+        `).join('');
+    
+    navMenu.innerHTML = html;
+}
+
 // Загрузка страницы
 async function loadPage(page) {
     showLoader();
@@ -467,8 +499,87 @@ window.utils = {
     clearErrors: clearErrors,
     toggleSidebar: toggleSidebar,
     navigateTo: navigateTo,
+    loadNavigation: loadNavigation,
+    loadPage: loadPage,
     exportToCSV: exportToCSV,
-    downloadFile: downloadFile,
-    getRandomColor: getRandomColor,
-    debounce: debounce
+    showProfileSettings: showProfileSettings
 };
+
+// Показать настройки профиля
+function showProfileSettings() {
+    const content = `
+        <div class="settings-section">
+            <h3>Профиль пользователя</h3>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" value="${currentUser?.email || ''}" disabled>
+            </div>
+            <div class="form-group">
+                <label>Имя</label>
+                <input type="text" id="profileName" value="${currentUser?.full_name || ''}">
+            </div>
+            <button class="btn-primary" onclick="saveProfileSettings()">Сохранить</button>
+        </div>
+        <div class="settings-section">
+            <h3>Изменение пароля</h3>
+            <div class="form-group">
+                <label>Текущий пароль</label>
+                <input type="password" id="currentPassword">
+            </div>
+            <div class="form-group">
+                <label>Новый пароль</label>
+                <input type="password" id="newPassword">
+            </div>
+            <div class="form-group">
+                <label>Подтверждение пароля</label>
+                <input type="password" id="confirmNewPassword">
+            </div>
+            <button class="btn-primary" onclick="changePassword()">Изменить пароль</button>
+        </div>
+    `;
+    
+    showModal('Настройки профиля', content, [
+        { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-secondary' }
+    ]);
+}
+
+// Сохранение настроек профиля
+async function saveProfileSettings() {
+    const name = document.getElementById('profileName').value;
+    
+    try {
+        await api.updateProfile(currentUser.id, { full_name: name });
+        currentUser.full_name = name;
+        localStorage.setItem('current_user', JSON.stringify(currentUser));
+        updateUserInfo();
+        showNotification('success', 'Профиль обновлен');
+        closeModal();
+    } catch (error) {
+        showNotification('error', 'Ошибка сохранения профиля');
+    }
+}
+
+// Изменение пароля
+async function changePassword() {
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmNewPassword').value;
+    
+    if (newPassword !== confirmPassword) {
+        showNotification('error', 'Пароли не совпадают');
+        return;
+    }
+    
+    const success = await updatePassword(currentPassword, newPassword);
+    if (success) {
+        closeModal();
+    }
+}
+
+// Экспорт функций в глобальную область
+window.loadNavigation = loadNavigation;
+window.loadPage = loadPage;
+window.navigateTo = navigateTo;
+window.showProfileSettings = showProfileSettings;
+window.saveProfileSettings = saveProfileSettings;
+window.changePassword = changePassword;
