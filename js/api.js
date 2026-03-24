@@ -1,20 +1,6 @@
 // ========================================
-// API модуль для работы с данными
+// API модуль для работы с локальной базой данных SQLite
 // ========================================
-
-// Таблицы базы данных
-const TABLES = {
-    users: 'users',
-    profiles: 'profiles',
-    institutions: 'institutions',
-    students: 'students',
-    staff: 'staff',
-    statistics: 'statistics',
-    reports: 'reports',
-    logs: 'logs',
-    notifications: 'notifications',
-    settings: 'settings'
-};
 
 // API функции для работы с учреждениями образования
 const api = {
@@ -23,30 +9,38 @@ const api = {
     // Получение всех учреждений
     async getInstitutions(filters = {}) {
         try {
-            let query = supabase.from(TABLES.institutions).select('*');
-            
+            let sql = 'SELECT * FROM institutions WHERE 1=1';
+            const params = [];
+
             if (filters.type) {
-                query = query.eq('type', filters.type);
+                sql += ' AND type = ?';
+                params.push(filters.type);
             }
             if (filters.region) {
-                query = query.eq('region', filters.region);
+                sql += ' AND region = ?';
+                params.push(filters.region);
             }
             if (filters.search) {
-                query = query.ilike('name', `%${filters.search}%`);
+                sql += ' AND name LIKE ?';
+                params.push(`%${filters.search}%`);
             }
-            
+
+            if (filters.sortBy) {
+                sql += ` ORDER BY ${filters.sortBy} ${filters.sortAsc !== false ? 'ASC' : 'DESC'}`;
+            } else {
+                sql += ' ORDER BY name ASC';
+            }
+
             if (filters.limit) {
-                query = query.limit(filters.limit);
+                sql += ' LIMIT ?';
+                params.push(filters.limit);
             }
             if (filters.offset) {
-                query = query.offset(filters.offset);
+                sql += ' OFFSET ?';
+                params.push(filters.offset);
             }
-            
-            if (filters.sortBy) {
-                query = query.order(filters.sortBy, { ascending: filters.sortAsc !== false });
-            }
-            
-            return await query.execute();
+
+            return db.query(sql, params);
         } catch (error) {
             console.error('Error fetching institutions:', error);
             throw error;
@@ -56,11 +50,7 @@ const api = {
     // Получение учреждения по ID
     async getInstitutionById(id) {
         try {
-            const data = await supabase.from(TABLES.institutions)
-                .select('*')
-                .eq('id', id)
-                .execute();
-            return data[0] || null;
+            return db.getOne('SELECT * FROM institutions WHERE id = ?', [id]);
         } catch (error) {
             console.error('Error fetching institution:', error);
             throw error;
@@ -70,7 +60,19 @@ const api = {
     // Создание учреждения
     async createInstitution(data) {
         try {
-            return await supabase.insert(TABLES.institutions, data);
+            const sql = `
+                INSERT INTO institutions (name, type, region, address, phone, email, website, description)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            const result = db.run(sql, [
+                data.name, data.type, data.region, data.address, 
+                data.phone, data.email, data.website, data.description
+            ]);
+            
+            if (result.success) {
+                return { id: db.getLastInsertId(), ...data };
+            }
+            throw result.error;
         } catch (error) {
             console.error('Error creating institution:', error);
             throw error;
@@ -80,7 +82,21 @@ const api = {
     // Обновление учреждения
     async updateInstitution(id, data) {
         try {
-            return await supabase.update(TABLES.institutions, data, { id: id });
+            const fields = [];
+            const values = [];
+            
+            for (const [key, value] of Object.entries(data)) {
+                if (key !== 'id') {
+                    fields.push(`${key} = ?`);
+                    values.push(value);
+                }
+            }
+            
+            if (fields.length === 0) return { success: false };
+            
+            values.push(id);
+            const sql = `UPDATE institutions SET ${fields.join(', ')} WHERE id = ?`;
+            return db.run(sql, values);
         } catch (error) {
             console.error('Error updating institution:', error);
             throw error;
@@ -90,7 +106,11 @@ const api = {
     // Удаление учреждения
     async deleteInstitution(id) {
         try {
-            return await supabase.delete(TABLES.institutions, { id: id });
+            // Удаление связанных записей
+            db.run('DELETE FROM students WHERE institution_id = ?', [id]);
+            db.run('DELETE FROM staff WHERE institution_id = ?', [id]);
+            db.run('DELETE FROM statistics WHERE institution_id = ?', [id]);
+            return db.run('DELETE FROM institutions WHERE id = ?', [id]);
         } catch (error) {
             console.error('Error deleting institution:', error);
             throw error;
@@ -102,26 +122,34 @@ const api = {
     // Получение всех учащихся
     async getStudents(filters = {}) {
         try {
-            let query = supabase.from(TABLES.students).select('*');
-            
+            let sql = 'SELECT * FROM students WHERE 1=1';
+            const params = [];
+
             if (filters.institution_id) {
-                query = query.eq('institution_id', filters.institution_id);
+                sql += ' AND institution_id = ?';
+                params.push(filters.institution_id);
             }
             if (filters.grade) {
-                query = query.eq('grade', filters.grade);
+                sql += ' AND grade = ?';
+                params.push(filters.grade);
             }
             if (filters.search) {
-                query = query.ilike('full_name', `%${filters.search}%`);
+                sql += ' AND full_name LIKE ?';
+                params.push(`%${filters.search}%`);
             }
-            
+
+            sql += ' ORDER BY full_name ASC';
+
             if (filters.limit) {
-                query = query.limit(filters.limit);
+                sql += ' LIMIT ?';
+                params.push(filters.limit);
             }
             if (filters.offset) {
-                query = query.offset(filters.offset);
+                sql += ' OFFSET ?';
+                params.push(filters.offset);
             }
-            
-            return await query.execute();
+
+            return db.query(sql, params);
         } catch (error) {
             console.error('Error fetching students:', error);
             throw error;
@@ -131,11 +159,7 @@ const api = {
     // Получение учащегося по ID
     async getStudentById(id) {
         try {
-            const data = await supabase.from(TABLES.students)
-                .select('*')
-                .eq('id', id)
-                .execute();
-            return data[0] || null;
+            return db.getOne('SELECT * FROM students WHERE id = ?', [id]);
         } catch (error) {
             console.error('Error fetching student:', error);
             throw error;
@@ -145,7 +169,19 @@ const api = {
     // Создание учащегося
     async createStudent(data) {
         try {
-            return await supabase.insert(TABLES.students, data);
+            const sql = `
+                INSERT INTO students (full_name, birth_date, gender, grade, institution_id, address, parent_phone)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `;
+            const result = db.run(sql, [
+                data.full_name, data.birth_date, data.gender, data.grade,
+                data.institution_id, data.address, data.parent_phone
+            ]);
+            
+            if (result.success) {
+                return { id: db.getLastInsertId(), ...data };
+            }
+            throw result.error;
         } catch (error) {
             console.error('Error creating student:', error);
             throw error;
@@ -155,7 +191,21 @@ const api = {
     // Обновление учащегося
     async updateStudent(id, data) {
         try {
-            return await supabase.update(TABLES.students, data, { id: id });
+            const fields = [];
+            const values = [];
+            
+            for (const [key, value] of Object.entries(data)) {
+                if (key !== 'id') {
+                    fields.push(`${key} = ?`);
+                    values.push(value);
+                }
+            }
+            
+            if (fields.length === 0) return { success: false };
+            
+            values.push(id);
+            const sql = `UPDATE students SET ${fields.join(', ')} WHERE id = ?`;
+            return db.run(sql, values);
         } catch (error) {
             console.error('Error updating student:', error);
             throw error;
@@ -165,7 +215,7 @@ const api = {
     // Удаление учащегося
     async deleteStudent(id) {
         try {
-            return await supabase.delete(TABLES.students, { id: id });
+            return db.run('DELETE FROM students WHERE id = ?', [id]);
         } catch (error) {
             console.error('Error deleting student:', error);
             throw error;
@@ -177,26 +227,34 @@ const api = {
     // Получение всех работников
     async getStaff(filters = {}) {
         try {
-            let query = supabase.from(TABLES.staff).select('*');
-            
+            let sql = 'SELECT * FROM staff WHERE 1=1';
+            const params = [];
+
             if (filters.institution_id) {
-                query = query.eq('institution_id', filters.institution_id);
+                sql += ' AND institution_id = ?';
+                params.push(filters.institution_id);
             }
             if (filters.position) {
-                query = query.eq('position', filters.position);
+                sql += ' AND position = ?';
+                params.push(filters.position);
             }
             if (filters.search) {
-                query = query.ilike('full_name', `%${filters.search}%`);
+                sql += ' AND full_name LIKE ?';
+                params.push(`%${filters.search}%`);
             }
-            
+
+            sql += ' ORDER BY full_name ASC';
+
             if (filters.limit) {
-                query = query.limit(filters.limit);
+                sql += ' LIMIT ?';
+                params.push(filters.limit);
             }
             if (filters.offset) {
-                query = query.offset(filters.offset);
+                sql += ' OFFSET ?';
+                params.push(filters.offset);
             }
-            
-            return await query.execute();
+
+            return db.query(sql, params);
         } catch (error) {
             console.error('Error fetching staff:', error);
             throw error;
@@ -206,11 +264,7 @@ const api = {
     // Получение работника по ID
     async getStaffById(id) {
         try {
-            const data = await supabase.from(TABLES.staff)
-                .select('*')
-                .eq('id', id)
-                .execute();
-            return data[0] || null;
+            return db.getOne('SELECT * FROM staff WHERE id = ?', [id]);
         } catch (error) {
             console.error('Error fetching staff:', error);
             throw error;
@@ -220,7 +274,19 @@ const api = {
     // Создание работника
     async createStaff(data) {
         try {
-            return await supabase.insert(TABLES.staff, data);
+            const sql = `
+                INSERT INTO staff (full_name, position, institution_id, hire_date, education, specialty, phone, email)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            const result = db.run(sql, [
+                data.full_name, data.position, data.institution_id, data.hire_date,
+                data.education, data.specialty, data.phone, data.email
+            ]);
+            
+            if (result.success) {
+                return { id: db.getLastInsertId(), ...data };
+            }
+            throw result.error;
         } catch (error) {
             console.error('Error creating staff:', error);
             throw error;
@@ -230,7 +296,21 @@ const api = {
     // Обновление работника
     async updateStaff(id, data) {
         try {
-            return await supabase.update(TABLES.staff, data, { id: id });
+            const fields = [];
+            const values = [];
+            
+            for (const [key, value] of Object.entries(data)) {
+                if (key !== 'id') {
+                    fields.push(`${key} = ?`);
+                    values.push(value);
+                }
+            }
+            
+            if (fields.length === 0) return { success: false };
+            
+            values.push(id);
+            const sql = `UPDATE staff SET ${fields.join(', ')} WHERE id = ?`;
+            return db.run(sql, values);
         } catch (error) {
             console.error('Error updating staff:', error);
             throw error;
@@ -240,7 +320,7 @@ const api = {
     // Удаление работника
     async deleteStaff(id) {
         try {
-            return await supabase.delete(TABLES.staff, { id: id });
+            return db.run('DELETE FROM staff WHERE id = ?', [id]);
         } catch (error) {
             console.error('Error deleting staff:', error);
             throw error;
@@ -252,22 +332,29 @@ const api = {
     // Получение статистики
     async getStatistics(filters = {}) {
         try {
-            let query = supabase.from(TABLES.statistics).select('*');
-            
+            let sql = 'SELECT * FROM statistics WHERE 1=1';
+            const params = [];
+
             if (filters.institution_id) {
-                query = query.eq('institution_id', filters.institution_id);
+                sql += ' AND institution_id = ?';
+                params.push(filters.institution_id);
             }
             if (filters.category) {
-                query = query.eq('category', filters.category);
+                sql += ' AND category = ?';
+                params.push(filters.category);
             }
             if (filters.start_date) {
-                query = query.gte('date', filters.start_date);
+                sql += ' AND date >= ?';
+                params.push(filters.start_date);
             }
             if (filters.end_date) {
-                query = query.lte('date', filters.end_date);
+                sql += ' AND date <= ?';
+                params.push(filters.end_date);
             }
-            
-            return await query.execute();
+
+            sql += ' ORDER BY date DESC';
+
+            return db.query(sql, params);
         } catch (error) {
             console.error('Error fetching statistics:', error);
             throw error;
@@ -277,7 +364,16 @@ const api = {
     // Создание записи статистики
     async createStatistic(data) {
         try {
-            return await supabase.insert(TABLES.statistics, data);
+            const sql = `
+                INSERT INTO statistics (institution_id, category, value, date)
+                VALUES (?, ?, ?, ?)
+            `;
+            const result = db.run(sql, [data.institution_id, data.category, data.value, data.date]);
+            
+            if (result.success) {
+                return { id: db.getLastInsertId(), ...data };
+            }
+            throw result.error;
         } catch (error) {
             console.error('Error creating statistic:', error);
             throw error;
@@ -289,16 +385,21 @@ const api = {
     // Получение всех отчетов
     async getReports(filters = {}) {
         try {
-            let query = supabase.from(TABLES.reports).select('*');
-            
+            let sql = 'SELECT * FROM reports WHERE 1=1';
+            const params = [];
+
             if (filters.user_id) {
-                query = query.eq('user_id', filters.user_id);
+                sql += ' AND user_id = ?';
+                params.push(filters.user_id);
             }
             if (filters.type) {
-                query = query.eq('type', filters.type);
+                sql += ' AND type = ?';
+                params.push(filters.type);
             }
-            
-            return await query.execute();
+
+            sql += ' ORDER BY created_at DESC';
+
+            return db.query(sql, params);
         } catch (error) {
             console.error('Error fetching reports:', error);
             throw error;
@@ -308,7 +409,16 @@ const api = {
     // Создание отчета
     async createReport(data) {
         try {
-            return await supabase.insert(TABLES.reports, data);
+            const sql = `
+                INSERT INTO reports (user_id, type, title, data)
+                VALUES (?, ?, ?, ?)
+            `;
+            const result = db.run(sql, [data.user_id, data.type, data.title, JSON.stringify(data.data)]);
+            
+            if (result.success) {
+                return { id: db.getLastInsertId(), ...data };
+            }
+            throw result.error;
         } catch (error) {
             console.error('Error creating report:', error);
             throw error;
@@ -320,32 +430,39 @@ const api = {
     // Создание записи лога
     async createLog(data) {
         try {
-            return await supabase.insert(TABLES.logs, data);
+            const sql = `
+                INSERT INTO logs (user_id, action, details)
+                VALUES (?, ?, ?)
+            `;
+            return db.run(sql, [data.user_id, data.action, data.details]);
         } catch (error) {
             console.error('Error creating log:', error);
-            // Не блокируем выполнение при ошибке логирования
         }
     },
     
     // Получение логов
     async getLogs(filters = {}) {
         try {
-            let query = supabase.from(TABLES.logs).select('*');
-            
+            let sql = 'SELECT * FROM logs WHERE 1=1';
+            const params = [];
+
             if (filters.user_id) {
-                query = query.eq('user_id', filters.user_id);
+                sql += ' AND user_id = ?';
+                params.push(filters.user_id);
             }
             if (filters.action) {
-                query = query.eq('action', filters.action);
+                sql += ' AND action = ?';
+                params.push(filters.action);
             }
-            
-            query = query.order('created_at', { ascending: false });
-            
+
+            sql += ' ORDER BY created_at DESC';
+
             if (filters.limit) {
-                query = query.limit(filters.limit);
+                sql += ' LIMIT ?';
+                params.push(filters.limit);
             }
-            
-            return await query.execute();
+
+            return db.query(sql, params);
         } catch (error) {
             console.error('Error fetching logs:', error);
             throw error;
@@ -357,11 +474,11 @@ const api = {
     // Получение уведомлений пользователя
     async getNotifications(userId) {
         try {
-            return await supabase.from(TABLES.notifications)
-                .select('*')
-                .eq('user_id', userId)
-                .order('created_at', { ascending: false })
-                .execute();
+            return db.query(`
+                SELECT * FROM notifications 
+                WHERE user_id = ? 
+                ORDER BY created_at DESC
+            `, [userId]);
         } catch (error) {
             console.error('Error fetching notifications:', error);
             throw error;
@@ -371,7 +488,16 @@ const api = {
     // Создание уведомления
     async createNotification(data) {
         try {
-            return await supabase.insert(TABLES.notifications, data);
+            const sql = `
+                INSERT INTO notifications (user_id, title, message, read)
+                VALUES (?, ?, ?, ?)
+            `;
+            const result = db.run(sql, [data.user_id, data.title, data.message, 0]);
+            
+            if (result.success) {
+                return { id: db.getLastInsertId(), ...data };
+            }
+            throw result.error;
         } catch (error) {
             console.error('Error creating notification:', error);
             throw error;
@@ -381,25 +507,40 @@ const api = {
     // Отметка уведомления как прочитанного
     async markNotificationRead(id) {
         try {
-            return await supabase.update(TABLES.notifications, { read: true }, { id: id });
+            return db.run('UPDATE notifications SET read = 1 WHERE id = ?', [id]);
         } catch (error) {
             console.error('Error marking notification:', error);
             throw error;
         }
     },
     
-    // ==================== Пользователи ====================
+    // ==================== Профиль пользователя ====================
     
     // Получение профиля пользователя
     async getProfile(userId) {
         try {
-            const data = await supabase.from(TABLES.profiles)
-                .select('*')
-                .eq('user_id', userId)
-                .execute();
-            return data[0] || null;
+            return db.getOne('SELECT * FROM profiles WHERE user_id = ?', [userId]);
         } catch (error) {
             console.error('Error fetching profile:', error);
+            throw error;
+        }
+    },
+    
+    // Создание профиля
+    async createProfile(data) {
+        try {
+            const sql = `
+                INSERT INTO profiles (user_id, full_name, role)
+                VALUES (?, ?, ?)
+            `;
+            const result = db.run(sql, [data.user_id, data.full_name, data.role || 'user']);
+            
+            if (result.success) {
+                return { id: db.getLastInsertId(), ...data };
+            }
+            throw result.error;
+        } catch (error) {
+            console.error('Error creating profile:', error);
             throw error;
         }
     },
@@ -407,17 +548,33 @@ const api = {
     // Обновление профиля
     async updateProfile(userId, data) {
         try {
-            return await supabase.update(TABLES.profiles, data, { user_id: userId });
+            const fields = [];
+            const values = [];
+            
+            for (const [key, value] of Object.entries(data)) {
+                if (key !== 'user_id') {
+                    fields.push(`${key} = ?`);
+                    values.push(value);
+                }
+            }
+            
+            if (fields.length === 0) return { success: false };
+            
+            values.push(userId);
+            const sql = `UPDATE profiles SET ${fields.join(', ')} WHERE user_id = ?`;
+            return db.run(sql, values);
         } catch (error) {
             console.error('Error updating profile:', error);
             throw error;
         }
     },
     
+    // ==================== Пользователи ====================
+    
     // Получение всех пользователей (для админа)
     async getUsers() {
         try {
-            return await supabase.from(TABLES.users).select('*').execute();
+            return db.query('SELECT * FROM users ORDER BY created_at DESC');
         } catch (error) {
             console.error('Error fetching users:', error);
             throw error;
@@ -429,8 +586,7 @@ const api = {
     // Получение количества учреждений по типам
     async getInstitutionsCountByType() {
         try {
-            // Используем простой подсчет - в реальном приложении можно использовать RPC
-            const institutions = await supabase.from(TABLES.institutions).select('type').execute();
+            const institutions = db.query('SELECT type FROM institutions');
             
             const counts = {};
             institutions.forEach(inst => {
@@ -447,7 +603,7 @@ const api = {
     // Получение общего количества учащихся
     async getTotalStudents() {
         try {
-            const students = await supabase.from(TABLES.students).select('id').execute();
+            const students = db.query('SELECT id FROM students');
             return students.length;
         } catch (error) {
             console.error('Error fetching total students:', error);
@@ -458,7 +614,7 @@ const api = {
     // Получение общего количества работников
     async getTotalStaff() {
         try {
-            const staff = await supabase.from(TABLES.staff).select('id').execute();
+            const staff = db.query('SELECT id FROM staff');
             return staff.length;
         } catch (error) {
             console.error('Error fetching total staff:', error);
@@ -473,7 +629,7 @@ const api = {
         try {
             const results = [];
             for (const data of dataArray) {
-                const result = await supabase.insert(TABLES.institutions, data);
+                const result = await this.createInstitution(data);
                 results.push(result);
             }
             return results;
@@ -488,7 +644,7 @@ const api = {
         try {
             const results = [];
             for (const data of dataArray) {
-                const result = await supabase.insert(TABLES.students, data);
+                const result = await this.createStudent(data);
                 results.push(result);
             }
             return results;
@@ -503,7 +659,7 @@ const api = {
         try {
             const results = [];
             for (const data of dataArray) {
-                const result = await supabase.insert(TABLES.staff, data);
+                const result = await this.createStaff(data);
                 results.push(result);
             }
             return results;

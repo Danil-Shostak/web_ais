@@ -1,5 +1,5 @@
 // ========================================
-// Модуль аутентификации и авторизации
+// Модуль аутентификации и авторизации (локальная версия)
 // ========================================
 
 // Текущий пользователь
@@ -7,31 +7,28 @@ let currentUser = null;
 
 // Инициализация аутентификации
 async function initAuth() {
-    // Проверка загрузки supabase
-    if (typeof supabase === 'undefined') {
-        console.log('Waiting for supabase to load...');
+    // Проверка загрузки db
+    if (typeof db === 'undefined' || !db.initialized) {
+        console.log('Waiting for database to load...');
         setTimeout(initAuth, 100);
         return;
     }
     
-    const token = supabase.getAuthToken();
+    // Проверка сохраненной сессии
+    const savedUser = localStorage.getItem('current_user');
     
-    if (token) {
+    if (savedUser) {
         try {
-            const user = await supabase.auth.getUser();
-            if (user) {
-                currentUser = user;
-                // Загрузка профиля пользователя
-                const profile = await api.getProfile(user.id);
-                if (profile) {
-                    currentUser.profile = profile;
-                }
-                showApp();
-            } else {
-                showLogin();
+            currentUser = JSON.parse(savedUser);
+            // Загрузка профиля пользователя
+            const profile = await api.getProfile(currentUser.id);
+            if (profile) {
+                currentUser.profile = profile;
             }
+            showApp();
         } catch (error) {
             console.error('Auth init error:', error);
+            localStorage.removeItem('current_user');
             showLogin();
         }
     } else {
@@ -65,7 +62,7 @@ function showApp() {
 // Обновление информации о пользователе
 function updateUserInfo() {
     if (currentUser) {
-        const userName = currentUser.email || 'Пользователь';
+        const userName = currentUser.full_name || currentUser.email || 'Пользователь';
         document.getElementById('currentUserName').textContent = userName;
     }
 }
@@ -95,24 +92,43 @@ async function handleLogin(event) {
     showLoader();
     
     try {
-        // Вызов API Supabase для входа
-        const response = await supabase.auth.signIn(email, password);
+        // Поиск пользователя в локальной базе
+        const user = db.getOne('SELECT * FROM users WHERE email = ?', [email]);
         
-        // Получение данных пользователя
-        currentUser = response.user;
+        if (!user) {
+            throw new Error('Пользователь не найден');
+        }
+        
+        // Проверка пароля (простая проверка, в реальном приложении нужно хэширование)
+        if (user.password !== password) {
+            throw new Error('Неверный пароль');
+        }
+        
+        // Установка текущего пользователя
+        currentUser = {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            role: user.role
+        };
         
         // Загрузка профиля
-        const profile = await api.getProfile(currentUser.id);
+        const profile = await api.getProfile(user.id);
         if (profile) {
             currentUser.profile = profile;
         } else {
             // Создание профиля при первом входе
             await api.createProfile({
-                user_id: currentUser.id,
-                full_name: email.split('@')[0],
-                role: 'user'
+                user_id: user.id,
+                full_name: user.full_name || email.split('@')[0],
+                role: user.role
             });
-            currentUser.profile = { role: 'user' };
+            currentUser.profile = { role: user.role };
+        }
+        
+        // Сохранение сессии
+        if (rememberMe) {
+            localStorage.setItem('current_user', JSON.stringify(currentUser));
         }
         
         // Логирование
@@ -172,25 +188,37 @@ async function handleRegister(event) {
     showLoader();
     
     try {
-        // Регистрация в Supabase
-        const response = await supabase.auth.signUp(email, password);
+        // Проверка, что пользователь с таким email не существует
+        const existingUser = db.getOne('SELECT id FROM users WHERE email = ?', [email]);
         
-        if (response.user) {
-            // Создание профиля
-            await api.createProfile({
-                user_id: response.user.id,
-                full_name: name,
-                role: 'user'
-            });
-            
-            showNotification('success', 'Регистрация успешна! Теперь вы можете войти в систему.');
-            
-            // Переключение на вкладку входа
-            showLoginTab('login');
-            
-            // Очистка формы регистрации
-            document.getElementById('registerForm').reset();
+        if (existingUser) {
+            throw new Error('Пользователь с таким email уже существует');
         }
+        
+        // Создание нового пользователя
+        const userId = db.generateId();
+        
+        const sql = `
+            INSERT INTO users (id, email, password, full_name, role)
+            VALUES (?, ?, ?, ?, ?)
+        `;
+        
+        db.run(sql, [userId, email, password, name, 'user']);
+        
+        // Создание профиля
+        await api.createProfile({
+            user_id: userId,
+            full_name: name,
+            role: 'user'
+        });
+        
+        showNotification('success', 'Регистрация успешна! Теперь вы можете войти в систему.');
+        
+        // Переключение на вкладку входа
+        showLoginTab('login');
+        
+        // Очистка формы регистрации
+        document.getElementById('registerForm').reset();
         
     } catch (error) {
         console.error('Registration error:', error);
@@ -212,34 +240,35 @@ async function logout() {
             });
         }
         
-        await supabase.auth.signOut();
         currentUser = null;
+        localStorage.removeItem('current_user');
         
         showLogin();
         showNotification('info', 'Вы вышли из системы');
         
     } catch (error) {
         console.error('Logout error:', error);
-        // В любом случае показать страницу входа
         showLogin();
     }
 }
 
 // Проверка роли пользователя
 function hasRole(role) {
-    if (!currentUser || !currentUser.profile) {
+    if (!currentUser) {
         return false;
     }
     
+    const userRole = currentUser.role || (currentUser.profile && currentUser.profile.role) || 'user';
+    
     if (role === 'admin') {
-        return currentUser.profile.role === 'admin';
+        return userRole === 'admin';
     }
     
     if (role === 'editor') {
-        return currentUser.profile.role === 'admin' || currentUser.profile.role === 'editor';
+        return userRole === 'admin' || userRole === 'editor';
     }
     
-    return true; // Для обычных пользователей
+    return true;
 }
 
 // Проверка прав доступа к функции
@@ -370,7 +399,22 @@ function showProfileSettings() {
 // Смена пароля пользователя
 async function changePassword(currentPassword, newPassword) {
     try {
-        // В реальном приложении здесь будет вызов API
+        if (!currentUser) {
+            showNotification('error', 'Пользователь не авторизован');
+            return false;
+        }
+        
+        // Получение текущего пароля
+        const user = db.getOne('SELECT password FROM users WHERE id = ?', [currentUser.id]);
+        
+        if (!user || user.password !== currentPassword) {
+            showNotification('error', 'Неверный текущий пароль');
+            return false;
+        }
+        
+        // Обновление пароля
+        db.run('UPDATE users SET password = ? WHERE id = ?', [newPassword, currentUser.id]);
+        
         showNotification('success', 'Пароль успешно изменен');
         return true;
     } catch (error) {

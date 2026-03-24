@@ -6,8 +6,17 @@
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Инициализация приложения...');
     
-    // Инициализация аутентификации
-    await initAuth();
+    try {
+        // Инициализация локальной базы данных SQLite
+        await db.init();
+        console.log('База данных инициализирована');
+        
+        // Инициализация аутентификации
+        await initAuth();
+    } catch (error) {
+        console.error('Ошибка инициализации:', error);
+        showNotification('error', 'Ошибка инициализации приложения');
+    }
 });
 
 // Обработчик ошибок
