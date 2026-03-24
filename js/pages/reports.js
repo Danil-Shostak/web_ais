@@ -1,0 +1,370 @@
+// ========================================
+// Страница отчетов
+// ========================================
+
+const reportsPage = {
+    institutions: [],
+    
+    // Загрузка страницы
+    load: async function() {
+        try {
+            const institutions = await api.getInstitutions({ limit: 1000 });
+            this.institutions = institutions;
+            this.render();
+        } catch (error) {
+            console.error('Error loading reports:', error);
+            this.render();
+        }
+    },
+    
+    // Рендер страницы
+    render: function() {
+        const html = `
+            <div class="page-header">
+                <h1>Отчеты</h1>
+                <p>Генерация и экспорт отчетов в различных форматах</p>
+            </div>
+            
+            <div class="grid-2">
+                <!-- Создание отчета -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Создать отчет</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="reportForm" onsubmit="reportsPage.generateReport(event)">
+                            <div class="form-group">
+                                <label for="reportType">Тип отчета *</label>
+                                <select id="reportType" required onchange="reportsPage.updateReportOptions()">
+                                    <option value="">Выберите тип отчета</option>
+                                    <option value="institution">Отчет по учреждению</option>
+                                    <option value="students">Отчет по учащимся</option>
+                                    <option value="staff">Отчет по работникам</option>
+                                    <option value="statistics">Статистический отчет</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" id="institutionSelect" style="display: none;">
+                                <label for="reportInstitution">Учреждение *</label>
+                                <select id="reportInstitution">
+                                    <option value="">Выберите учреждение</option>
+                                    ${this.institutions.map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" id="dateRange" style="display: none;">
+                                <label>Период</label>
+                                <div class="form-row">
+                                    <input type="date" id="startDate" placeholder="Дата начала">
+                                    <input type="date" id="endDate" placeholder="Дата окончания">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Формат *</label>
+                                <div class="flex flex-gap">
+                                    <label>
+                                        <input type="checkbox" name="format" value="pdf" checked> PDF
+                                    </label>
+                                    <label>
+                                        <input type="checkbox" name="format" value="xlsx" checked> Excel
+                                    </label>
+                                    <label>
+                                        <input type="checkbox" name="format" value="doc"> Word
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn-primary">
+                                Создать отчет
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Шаблоны отчетов -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Быстрые шаблоны</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="flex flex-column" style="gap: 12px;">
+                            <button class="btn-secondary" onclick="reportsPage.quickReport('all_institutions')">
+                                📊 Отчет по всем учреждениям
+                            </button>
+                            <button class="btn-secondary" onclick="reportsPage.quickReport('all_students')">
+                                👨‍🎓 Отчет по всем учащимся
+                            </button>
+                            <button class="btn-secondary" onclick="reportsPage.quickReport('all_staff')">
+                                👨‍🏫 Отчет по всем работникам
+                            </button>
+                            <button class="btn-secondary" onclick="reportsPage.quickReport('summary')">
+                                📈 Сводный отчет
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- История отчетов -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3>История созданных отчетов</h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted text-center">Здесь будет отображаться история созданных отчетов</p>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('pageContent').innerHTML = html;
+    },
+    
+    // Обновление опций отчета
+    updateReportOptions: function() {
+        const type = document.getElementById('reportType').value;
+        
+        document.getElementById('institutionSelect').style.display = 
+            ['institution', 'students', 'staff'].includes(type) ? 'block' : 'none';
+        
+        document.getElementById('dateRange').style.display = 
+            type === 'statistics' ? 'block' : 'none';
+    },
+    
+    // Генерация отчета
+    generateReport: async function(event) {
+        event.preventDefault();
+        
+        const type = document.getElementById('reportType').value;
+        const formats = Array.from(document.querySelectorAll('input[name="format"]:checked')).map(cb => cb.value);
+        
+        if (!type) {
+            showNotification('warning', 'Выберите тип отчета');
+            return;
+        }
+        
+        if (formats.length === 0) {
+            showNotification('warning', 'Выберите хотя бы один формат');
+            return;
+        }
+        
+        showLoader();
+        
+        try {
+            // Генерация данных для отчета
+            let data = [];
+            let title = '';
+            
+            switch (type) {
+                case 'institution':
+                    const instId = document.getElementById('reportInstitution').value;
+                    if (!instId) throw new Error('Выберите учреждение');
+                    const inst = await api.getInstitutionById(instId);
+                    data = [inst];
+                    title = `Отчет по учреждению: ${inst.name}`;
+                    break;
+                    
+                case 'students':
+                    const studInstId = document.getElementById('reportInstitution').value;
+                    data = await api.getStudents({ institution_id: studInstId || undefined });
+                    title = 'Отчет по учащимся';
+                    break;
+                    
+                case 'staff':
+                    const staffInstId = document.getElementById('reportInstitution').value;
+                    data = await api.getStaff({ institution_id: staffInstId || undefined });
+                    title = 'Отчет по работникам';
+                    break;
+                    
+                case 'statistics':
+                    data = this.institutions;
+                    title = 'Статистический отчет';
+                    break;
+            }
+            
+            // Создание отчетов в выбранных форматах
+            for (const format of formats) {
+                await this.createReportFile(data, type, format);
+            }
+            
+            // Логирование
+            await api.createLog({
+                user_id: currentUser.id,
+                action: 'create',
+                details: `Создан отчет: ${title} (${formats.join(', ')})`
+            });
+            
+            showNotification('success', 'Отчеты успешно созданы');
+            
+        } catch (error) {
+            console.error('Error generating report:', error);
+            showNotification('error', 'Ошибка создания отчета: ' + error.message);
+        }
+        
+        hideLoader();
+    },
+    
+    // Создание файла отчета
+    createReportFile: async function(data, type, format) {
+        const timestamp = new Date().toISOString().slice(0, 10);
+        let filename = `report_${type}_${timestamp}`;
+        let content = '';
+        
+        if (format === 'pdf') {
+            await this.generatePDF(data, type, filename);
+            return;
+        }
+        
+        if (format === 'xlsx') {
+            this.generateExcel(data, type, filename);
+            return;
+        }
+        
+        if (format === 'doc') {
+            content = this.generateDocContent(data, type);
+            this.downloadFile(content, filename + '.doc', 'application/msword');
+            return;
+        }
+    },
+    
+    // Генерация PDF
+    generatePDF: async function(data, type, filename) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Заголовок
+        doc.setFontSize(18);
+        doc.text('АИИО РБ - Отчет', 14, 20);
+        
+        doc.setFontSize(12);
+        doc.text(`Тип отчета: ${type}`, 14, 30);
+        doc.text(`Дата: ${new Date().toLocaleDateString('ru-RU')}`, 14, 36);
+        
+        // Таблица данных
+        if (data.length > 0) {
+            const headers = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
+            const rows = data.map(item => headers.map(h => String(item[h] || '-')));
+            
+            doc.autoTable({
+                head: [headers],
+                body: rows,
+                startY: 45,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [37, 99, 235] }
+            });
+        }
+        
+        doc.save(filename + '.pdf');
+    },
+    
+    // Генерация Excel
+    generateExcel: function(data, type, filename) {
+        if (data.length === 0) {
+            showNotification('warning', 'Нет данных для отчета');
+            return;
+        }
+        
+        // Подготовка данных
+        const headers = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
+        const rows = data.map(item => headers.map(h => item[h] || ''));
+        
+        // Создание книги
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Отчет');
+        
+        XLSX.writeFile(wb, filename + '.xlsx');
+    },
+    
+    // Генерация содержимого Word
+    generateDocContent: function(data, type) {
+        let content = 'АИИО РБ - Отчет\r\n';
+        content += '====================\r\n\r\n';
+        content += `Тип отчета: ${type}\r\n`;
+        content += `Дата: ${new Date().toLocaleDateString('ru-RU')}\r\n\r\n`;
+        
+        if (data.length > 0) {
+            content += 'Данные:\r\n\r\n';
+            
+            data.forEach((item, index) => {
+                content += `${index + 1}. ${JSON.stringify(item, null, 2)}\r\n\r\n`;
+            });
+        }
+        
+        return content;
+    },
+    
+    // Скачивание файла
+    downloadFile: function(content, filename, type) {
+        const blob = new Blob([content], { type: type });
+        saveAs(blob, filename);
+    },
+    
+    // Быстрый отчет
+    quickReport: async function(type) {
+        showLoader();
+        
+        try {
+            let data = [];
+            let title = '';
+            let filename = '';
+            
+            switch (type) {
+                case 'all_institutions':
+                    data = await api.getInstitutions({ limit: 1000 });
+                    title = 'Отчет по всем учреждениям';
+                    filename = 'all_institutions';
+                    break;
+                    
+                case 'all_students':
+                    data = await api.getStudents({ limit: 1000 });
+                    title = 'Отчет по всем учащимся';
+                    filename = 'all_students';
+                    break;
+                    
+                case 'all_staff':
+                    data = await api.getStaff({ limit: 1000 });
+                    title = 'Отчет по всем работникам';
+                    filename = 'all_staff';
+                    break;
+                    
+                case 'summary':
+                    // Сводный отчет
+                    const [inst, stud, staff] = await Promise.all([
+                        api.getInstitutions({ limit: 1000 }),
+                        api.getStudents({ limit: 1000 }),
+                        api.getStaff({ limit: 1000 })
+                    ]);
+                    
+                    data = [
+                        { Показатель: 'Учреждения образования', Значение: inst.length },
+                        { Показатель: 'Учащиеся', Значение: stud.length },
+                        { Показатель: 'Работники', Значение: staff.length }
+                    ];
+                    title = 'Сводный отчет';
+                    filename = 'summary';
+                    break;
+            }
+            
+            // Экспорт в Excel
+            this.generateExcel(data, type, filename);
+            
+            await api.createLog({
+                user_id: currentUser.id,
+                action: 'create',
+                details: `Создан быстрый отчет: ${title}`
+            });
+            
+            showNotification('success', 'Отчет создан и загружен');
+            
+        } catch (error) {
+            console.error('Error quick report:', error);
+            showNotification('error', 'Ошибка создания отчета');
+        }
+        
+        hideLoader();
+    }
+};
+
+// Экспорт
+window.reportsPage = reportsPage;

@@ -1,0 +1,381 @@
+// ========================================
+// Страница учащихся
+// ========================================
+
+const studentsPage = {
+    data: [],
+    institutions: [],
+    currentPage: 1,
+    pageSize: 20,
+    editingId: null,
+    
+    // Загрузка страницы
+    load: async function() {
+        try {
+            const [students, institutions] = await Promise.all([
+                api.getStudents({ limit: 1000 }),
+                api.getInstitutions({ limit: 1000 })
+            ]);
+            this.data = students;
+            this.institutions = institutions;
+            this.render();
+        } catch (error) {
+            console.error('Error loading students:', error);
+            this.data = [];
+            this.institutions = [];
+            this.render();
+        }
+    },
+    
+    // Рендер страницы
+    render: function() {
+        const filteredData = this.filterData();
+        const totalPages = Math.ceil(filteredData.length / this.pageSize);
+        const startIndex = (this.currentPage - 1) * this.pageSize;
+        const pageData = filteredData.slice(startIndex, startIndex + this.pageSize);
+        
+        const html = `
+            <div class="page-header">
+                <div class="flex flex-between">
+                    <div>
+                        <h1>Учащиеся</h1>
+                        <p>Управление списком учащихся</p>
+                    </div>
+                    ${canAccess('students.edit') ? `
+                        <button class="btn-primary" onclick="studentsPage.showAddForm()">
+                            + Добавить учащегося
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+            
+            <!-- Фильтры -->
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <label>Поиск</label>
+                    <input type="text" id="searchInput" placeholder="ФИО учащегося..." 
+                           value="${this.filters.search || ''}" 
+                           onchange="studentsPage.applyFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>Учреждение</label>
+                    <select id="institutionFilter" onchange="studentsPage.applyFilters()">
+                        <option value="">Все учреждения</option>
+                        ${this.institutions.map(inst => `
+                            <option value="${inst.id}" ${this.filters.institution_id == inst.id ? 'selected' : ''}>${inst.name}</option>
+                        `).join('')}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Класс</label>
+                    <select id="gradeFilter" onchange="studentsPage.applyFilters()">
+                        <option value="">Все классы</option>
+                        ${[1,2,3,4,5,6,7,8,9,10,11].map(g => `
+                            <option value="${g}" ${this.filters.grade == g ? 'selected' : ''}>${g} класс</option>
+                        `).join('')}
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Таблица -->
+            <div class="card">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ФИО</th>
+                                <th>Дата рождения</th>
+                                <th>Учреждение</th>
+                                <th>Класс</th>
+                                <th>Адрес</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pageData.length > 0 ? pageData.map(student => {
+                                const institution = this.institutions.find(i => i.id === student.institution_id);
+                                return `
+                                    <tr>
+                                        <td>
+                                            <strong>${student.full_name}</strong>
+                                        </td>
+                                        <td>${formatDate(student.birth_date)}</td>
+                                        <td>${institution ? truncateText(institution.name, 25) : '-'}</td>
+                                        <td>${student.grade}</td>
+                                        <td>${truncateText(student.address, 25) || '-'}</td>
+                                        <td>
+                                            <div class="table-actions">
+                                                <button class="btn-icon" onclick="viewStudent(${student.id})" title="Просмотр">
+                                                    👁️
+                                                </button>
+                                                ${canAccess('students.edit') ? `
+                                                    <button class="btn-icon" onclick="studentsPage.edit(${student.id})" title="Редактировать">
+                                                        ✏️
+                                                    </button>
+                                                    <button class="btn-icon" onclick="studentsPage.delete(${student.id})" title="Удалить">
+                                                        🗑️
+                                                    </button>
+                                                ` : ''}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('') : `
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        Учащиеся не найдены
+                                    </td>
+                                </tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Пагинация -->
+                ${totalPages > 1 ? `
+                    <div class="pagination" id="pagination"></div>
+                ` : ''}
+            </div>
+            
+            <!-- Модальное окно формы -->
+            <div id="formModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 id="formModalTitle">Добавить учащегося</h2>
+                        <button class="modal-close" onclick="studentsPage.closeForm()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="studentForm" onsubmit="studentsPage.submitForm(event)">
+                            <input type="hidden" id="studentId">
+                            
+                            <div class="form-group">
+                                <label for="full_name">ФИО *</label>
+                                <input type="text" id="full_name" required placeholder="Иванов Иван Иванович">
+                                <span class="error-message" id="full_nameError"></span>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="birth_date">Дата рождения *</label>
+                                    <input type="date" id="birth_date" required>
+                                    <span class="error-message" id="birth_dateError"></span>
+                                </div>
+                                <div class="form-group">
+                                    <label for="gender">Пол *</label>
+                                    <select id="gender" required>
+                                        <option value="">Выберите пол</option>
+                                        <option value="male">Мужской</option>
+                                        <option value="female">Женский</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="institution_id">Учреждение *</label>
+                                    <select id="institution_id" required>
+                                        <option value="">Выберите учреждение</option>
+                                        ${this.institutions.map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
+                                    </select>
+                                    <span class="error-message" id="institution_idError"></span>
+                                </div>
+                                <div class="form-group">
+                                    <label for="grade">Класс *</label>
+                                    <select id="grade" required>
+                                        <option value="">Выберите класс</option>
+                                        ${[1,2,3,4,5,6,7,8,9,10,11].map(g => `<option value="${g}">${g} класс</option>`).join('')}
+                                    </select>
+                                    <span class="error-message" id="gradeError"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="address">Адрес проживания</label>
+                                <input type="text" id="address" placeholder="Улица, дом, квартира">
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="parent_name">ФИО родителя</label>
+                                    <input type="text" id="parent_name" placeholder="ФИО одного из родителей">
+                                </div>
+                                <div class="form-group">
+                                    <label for="parent_phone">Телефон родителя</label>
+                                    <input type="text" id="parent_phone" placeholder="+375 (XX) XXX-XX-XX">
+                                    <span class="error-message" id="parent_phoneError"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn-secondary" onclick="studentsPage.closeForm()">Отмена</button>
+                                <button type="submit" class="btn-primary">Сохранить</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('pageContent').innerHTML = html;
+        
+        if (totalPages > 1) {
+            paginator = new Paginator(filteredData.length, this.pageSize, (page, offset, limit) => {
+                this.currentPage = page;
+                this.render();
+            });
+            paginator.goToPage(this.currentPage);
+            paginator.render('pagination');
+        }
+    },
+    
+    // Фильтрация данных
+    filterData: function() {
+        let filtered = [...this.data];
+        
+        if (this.filters.search) {
+            const search = this.filters.search.toLowerCase();
+            filtered = filtered.filter(s => s.full_name.toLowerCase().includes(search));
+        }
+        
+        if (this.filters.institution_id) {
+            filtered = filtered.filter(s => s.institution_id == this.filters.institution_id);
+        }
+        
+        if (this.filters.grade) {
+            filtered = filtered.filter(s => s.grade == this.filters.grade);
+        }
+        
+        return filtered;
+    },
+    
+    // Применение фильтров
+    applyFilters: function() {
+        this.filters = {
+            search: document.getElementById('searchInput').value,
+            institution_id: document.getElementById('institutionFilter').value,
+            grade: document.getElementById('gradeFilter').value
+        };
+        this.currentPage = 1;
+        this.render();
+    },
+    
+    // Показать форму добавления
+    showAddForm: function() {
+        this.editingId = null;
+        document.getElementById('formModalTitle').textContent = 'Добавить учащегося';
+        document.getElementById('studentForm').reset();
+        document.getElementById('studentId').value = '';
+        document.getElementById('formModal').classList.add('active');
+        clearValidationStyles();
+    },
+    
+    // Редактирование
+    edit: function(id) {
+        const student = this.data.find(s => s.id === id);
+        if (!student) return;
+        
+        this.editingId = id;
+        document.getElementById('formModalTitle').textContent = 'Редактировать учащегося';
+        
+        document.getElementById('studentId').value = id;
+        document.getElementById('full_name').value = student.full_name || '';
+        document.getElementById('birth_date').value = student.birth_date || '';
+        document.getElementById('gender').value = student.gender || '';
+        document.getElementById('institution_id').value = student.institution_id || '';
+        document.getElementById('grade').value = student.grade || '';
+        document.getElementById('address').value = student.address || '';
+        document.getElementById('parent_name').value = student.parent_name || '';
+        document.getElementById('parent_phone').value = student.parent_phone || '';
+        
+        document.getElementById('formModal').classList.add('active');
+        clearValidationStyles();
+    },
+    
+    // Закрыть форму
+    closeForm: function() {
+        document.getElementById('formModal').classList.remove('active');
+        this.editingId = null;
+    },
+    
+    // Удаление
+    delete: async function(id) {
+        const student = this.data.find(s => s.id === id);
+        if (!student) return;
+        
+        if (!confirm(`Вы уверены, что хотите удалить учащегося "${student.full_name}"?`)) {
+            return;
+        }
+        
+        try {
+            await api.deleteStudent(id);
+            showNotification('success', 'Учащийся удален');
+            
+            await api.createLog({
+                user_id: currentUser.id,
+                action: 'delete',
+                details: `Удален учащийся: ${student.full_name}`
+            });
+            
+            await this.load();
+        } catch (error) {
+            console.error('Error deleting student:', error);
+            showNotification('error', 'Ошибка удаления учащегося');
+        }
+    },
+    
+    // Отправка формы
+    submitForm: async function(event) {
+        event.preventDefault();
+        
+        const formData = {
+            full_name: document.getElementById('full_name').value.trim(),
+            birth_date: document.getElementById('birth_date').value,
+            gender: document.getElementById('gender').value,
+            institution_id: parseInt(document.getElementById('institution_id').value),
+            grade: parseInt(document.getElementById('grade').value),
+            address: document.getElementById('address').value.trim() || null,
+            parent_name: document.getElementById('parent_name').value.trim() || null,
+            parent_phone: document.getElementById('parent_phone').value.trim() || null
+        };
+        
+        const validation = validateStudentForm(formData);
+        if (!validation.valid) {
+            displayValidationErrors(validation.errors);
+            return;
+        }
+        
+        try {
+            if (this.editingId) {
+                await api.updateStudent(this.editingId, formData);
+                showNotification('success', 'Учащийся обновлен');
+                
+                await api.createLog({
+                    user_id: currentUser.id,
+                    action: 'update',
+                    details: `Обновлен учащийся: ${formData.full_name}`
+                });
+            } else {
+                await api.createStudent(formData);
+                showNotification('success', 'Учащийся добавлен');
+                
+                await api.createLog({
+                    user_id: currentUser.id,
+                    action: 'create',
+                    details: `Добавлен учащийся: ${formData.full_name}`
+                });
+            }
+            
+            this.closeForm();
+            await this.load();
+            
+        } catch (error) {
+            console.error('Error saving student:', error);
+            showNotification('error', 'Ошибка сохранения учащегося');
+        }
+    },
+    
+    filters: {}
+};
+
+// Экспорт
+window.studentsPage = studentsPage;

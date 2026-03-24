@@ -1,0 +1,26 @@
+# Игнорируемые файлы
+
+# Node modules
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Файлы с чувствительными данными
+*.env
+.env.local
+
+# Временные файлы
+*.tmp
+*.log
+
+# Скомпилированные файлы
+dist/
+build/
