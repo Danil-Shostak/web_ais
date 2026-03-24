@@ -583,3 +583,10 @@ window.navigateTo = navigateTo;
 window.showProfileSettings = showProfileSettings;
 window.saveProfileSettings = saveProfileSettings;
 window.changePassword = changePassword;
+
+// Функция проверки роли (дублируем для совместимости)
+function hasRole(role) {
+    const userRole = window.currentUser?.role || window.currentUser?.profile?.role;
+    return userRole === role || userRole === 'admin';
+}
+window.hasRole = hasRole;
