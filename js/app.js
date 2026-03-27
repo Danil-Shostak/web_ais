@@ -11,42 +11,84 @@ document.addEventListener('DOMContentLoaded', async function() {
         await initAuth();
     } catch (error) {
         console.error('Ошибка инициализации:', error);
-        showNotification('error', 'Ошибка инициализации приложения');
+        if (typeof showNotification === 'function') {
+            showNotification('error', 'Ошибка инициализации приложения');
+        }
     }
 });
 
-// Обработчик ошибок
+// Глобальный обработчик ошибок
 window.onerror = function(message, source, lineno, colno, error) {
     console.error('Global error:', message, source, lineno, colno, error);
-     
-    // Логирование ошибки
-    if (currentUser) {
+    
+    // Логирование ошибки с проверкой наличия зависимостей
+    if (typeof currentUser !== 'undefined' && currentUser && typeof api !== 'undefined') {
+        const errorDetails = {
+            message: message,
+            source: source,
+            lineno: lineno,
+            colno: colno,
+            stack: error?.stack,
+            url: window.location.href,
+            timestamp: new Date().toISOString()
+        };
+        
         api.createLog({
             user_id: currentUser.id,
             action: 'error',
-            details: `Ошибка: ${message} в ${source}:${lineno}:${colno}`
-        }).catch(console.error);
+            details: JSON.stringify(errorDetails)
+        }).catch(err => {
+            // Используем console.warn, чтобы избежать рекурсии
+            console.warn('Failed to log error:', err);
+        });
     }
     
-    showNotification('error', 'Произошла ошибка. Пожалуйста, обновите страницу.');
+    if (typeof showNotification === 'function') {
+        showNotification('error', 'Произошла ошибка. Пожалуйста, обновите страницу.');
+    }
+    
+    // Предотвращаем стандартное поведение браузера
+    return true;
 };
 
-// Обработчик необработанных промисов
-window.onunhandledrejection = function(event) {
+// Обработчик необработанных промисов (исправлен)
+window.addEventListener('unhandledrejection', function(event) {
     console.error('Unhandled promise rejection:', event.reason);
     
-    if (currentUser) {
+    if (typeof currentUser !== 'undefined' && currentUser && typeof api !== 'undefined') {
+        const errorDetails = {
+            type: 'unhandledrejection',
+            reason: event.reason?.toString() || 'Unknown',
+            stack: event.reason?.stack,
+            url: window.location.href,
+            timestamp: new Date().toISOString()
+        };
+        
         api.createLog({
             user_id: currentUser.id,
             action: 'error',
-            details: `Необработанная ошибка: ${event.reason}`
-        }).catch(console.error);
+            details: JSON.stringify(errorDetails)
+        }).catch(err => {
+            console.warn('Failed to log unhandled rejection:', err);
+        });
     }
-};
+    
+    if (typeof showNotification === 'function') {
+        showNotification('error', 'Произошла ошибка. Пожалуйста, обновите страницу.');
+    }
+    
+    // Предотвращаем стандартное поведение
+    event.preventDefault();
+});
 
 // Функция просмотра учреждения
 async function viewInstitution(id) {
     try {
+        // Проверяем наличие API
+        if (typeof api === 'undefined' || !api.getInstitutionById) {
+            throw new Error('API не инициализирован');
+        }
+        
         const institution = await api.getInstitutionById(id);
         
         if (!institution) {
@@ -60,19 +102,19 @@ async function viewInstitution(id) {
                 <div class="detail-grid">
                     <div class="detail-item">
                         <label>Название</label>
-                        <span>${institution.name}</span>
+                        <span>${escapeHtml(institution.name)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Тип</label>
-                        <span>${institution.type}</span>
+                        <span>${escapeHtml(institution.type)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Регион</label>
-                        <span>${institution.region || '-'}</span>
+                        <span>${escapeHtml(institution.region || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <label>Адрес</label>
-                        <span>${institution.address || '-'}</span>
+                        <span>${escapeHtml(institution.address || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <label>Телефон</label>
@@ -80,11 +122,11 @@ async function viewInstitution(id) {
                     </div>
                     <div class="detail-item">
                         <label>Email</label>
-                        <span>${institution.email || '-'}</span>
+                        <span>${escapeHtml(institution.email || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <label>Сайт</label>
-                        <span>${institution.website || '-'}</span>
+                        <span>${escapeHtml(institution.website || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <label>Дата создания</label>
@@ -95,7 +137,7 @@ async function viewInstitution(id) {
             ${institution.description ? `
                 <div class="detail-section">
                     <h3>Описание</h3>
-                    <p>${institution.description}</p>
+                    <p>${escapeHtml(institution.description)}</p>
                 </div>
             ` : ''}
         `;
@@ -104,7 +146,7 @@ async function viewInstitution(id) {
             { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-secondary' }
         ];
         
-        if (canAccess('institutions.edit')) {
+        if (typeof canAccess === 'function' && canAccess('institutions.edit')) {
             buttons.unshift({
                 label: 'Редактировать',
                 onclick: `editInstitution(${id})`,
@@ -112,17 +154,25 @@ async function viewInstitution(id) {
             });
         }
         
-        showModal(institution.name, content, buttons);
+        if (typeof showModal === 'function') {
+            showModal(institution.name, content, buttons);
+        }
         
     } catch (error) {
         console.error('Error viewing institution:', error);
-        showNotification('error', 'Ошибка загрузки данных учреждения');
+        if (typeof showNotification === 'function') {
+            showNotification('error', 'Ошибка загрузки данных учреждения');
+        }
     }
 }
 
 // Функция просмотра учащегося
 async function viewStudent(id) {
     try {
+        if (typeof api === 'undefined' || !api.getStudentById) {
+            throw new Error('API не инициализирован');
+        }
+        
         const student = await api.getStudentById(id);
         
         if (!student) {
@@ -130,7 +180,15 @@ async function viewStudent(id) {
             return;
         }
         
-        const institution = await api.getInstitutionById(student.institution_id);
+        let institutionName = '-';
+        if (student.institution_id && typeof api.getInstitutionById === 'function') {
+            try {
+                const institution = await api.getInstitutionById(student.institution_id);
+                institutionName = institution ? institution.name : '-';
+            } catch (e) {
+                console.warn('Failed to load institution:', e);
+            }
+        }
         
         const content = `
             <div class="detail-section">
@@ -138,7 +196,7 @@ async function viewStudent(id) {
                 <div class="detail-grid">
                     <div class="detail-item">
                         <label>ФИО</label>
-                        <span>${student.full_name}</span>
+                        <span>${escapeHtml(student.full_name)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Дата рождения</label>
@@ -150,15 +208,15 @@ async function viewStudent(id) {
                     </div>
                     <div class="detail-item">
                         <label>Класс</label>
-                        <span>${student.grade}</span>
+                        <span>${escapeHtml(student.grade)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Учреждение</label>
-                        <span>${institution ? institution.name : '-'}</span>
+                        <span>${escapeHtml(institutionName)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Адрес</label>
-                        <span>${student.address || '-'}</span>
+                        <span>${escapeHtml(student.address || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <label>Телефон родителей</label>
@@ -172,17 +230,25 @@ async function viewStudent(id) {
             { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-secondary' }
         ];
         
-        showModal(student.full_name, content, buttons);
+        if (typeof showModal === 'function') {
+            showModal(student.full_name, content, buttons);
+        }
         
     } catch (error) {
         console.error('Error viewing student:', error);
-        showNotification('error', 'Ошибка загрузки данных учащегося');
+        if (typeof showNotification === 'function') {
+            showNotification('error', 'Ошибка загрузки данных учащегося');
+        }
     }
 }
 
 // Функция просмотра работника
 async function viewStaff(id) {
     try {
+        if (typeof api === 'undefined' || !api.getStaffById) {
+            throw new Error('API не инициализирован');
+        }
+        
         const staff = await api.getStaffById(id);
         
         if (!staff) {
@@ -190,7 +256,15 @@ async function viewStaff(id) {
             return;
         }
         
-        const institution = await api.getInstitutionById(staff.institution_id);
+        let institutionName = '-';
+        if (staff.institution_id && typeof api.getInstitutionById === 'function') {
+            try {
+                const institution = await api.getInstitutionById(staff.institution_id);
+                institutionName = institution ? institution.name : '-';
+            } catch (e) {
+                console.warn('Failed to load institution:', e);
+            }
+        }
         
         const content = `
             <div class="detail-section">
@@ -198,15 +272,15 @@ async function viewStaff(id) {
                 <div class="detail-grid">
                     <div class="detail-item">
                         <label>ФИО</label>
-                        <span>${staff.full_name}</span>
+                        <span>${escapeHtml(staff.full_name)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Должность</label>
-                        <span>${staff.position}</span>
+                        <span>${escapeHtml(staff.position)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Учреждение</label>
-                        <span>${institution ? institution.name : '-'}</span>
+                        <span>${escapeHtml(institutionName)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Дата приема</label>
@@ -214,11 +288,11 @@ async function viewStaff(id) {
                     </div>
                     <div class="detail-item">
                         <label>Образование</label>
-                        <span>${staff.education || '-'}</span>
+                        <span>${escapeHtml(staff.education || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <label>Специальность</label>
-                        <span>${staff.specialty || '-'}</span>
+                        <span>${escapeHtml(staff.specialty || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <label>Телефон</label>
@@ -226,7 +300,7 @@ async function viewStaff(id) {
                     </div>
                     <div class="detail-item">
                         <label>Email</label>
-                        <span>${staff.email || '-'}</span>
+                        <span>${escapeHtml(staff.email || '-')}</span>
                     </div>
                 </div>
             </div>
@@ -236,25 +310,42 @@ async function viewStaff(id) {
             { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-secondary' }
         ];
         
-        showModal(staff.full_name, content, buttons);
+        if (typeof showModal === 'function') {
+            showModal(staff.full_name, content, buttons);
+        }
         
     } catch (error) {
         console.error('Error viewing staff:', error);
-        showNotification('error', 'Ошибка загрузки данных работника');
+        if (typeof showNotification === 'function') {
+            showNotification('error', 'Ошибка загрузки данных работника');
+        }
     }
 }
 
 // Функция редактирования учреждения
 function editInstitution(id) {
-    closeModal();
-    navigateTo('institutions');
+    if (typeof closeModal === 'function') {
+        closeModal();
+    }
+    
+    if (typeof navigateTo === 'function') {
+        navigateTo('institutions');
+    }
     
     // Через небольшую задержку вызываем функцию редактирования в модуле учреждений
     setTimeout(() => {
-        if (window.institutionsPage && window.institutionsPage.edit) {
+        if (window.institutionsPage && typeof window.institutionsPage.edit === 'function') {
             window.institutionsPage.edit(id);
         }
     }, 100);
+}
+
+// Вспомогательная функция для экранирования HTML (безопасность)
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
 // Глобальные функции для совместимости
