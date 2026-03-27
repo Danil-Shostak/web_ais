@@ -113,7 +113,7 @@ const institutionsPage = {
                                     <td>${inst.phone ? formatPhone(inst.phone) : '-'}</td>
                                     <td>
                                         <div class="table-actions">
-                                            <button class="btn-icon" onclick="viewInstitution(${inst.id})" title="Просмотр">
+                                            <button class="btn-icon" onclick="institutionsPage.viewInstitution(${inst.id})" title="Просмотр">
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                                     <circle cx="12" cy="12" r="3"></circle>
@@ -414,7 +414,76 @@ const institutionsPage = {
         }
     },
     
-    filters: {}
+    filters: {},
+    
+    // Просмотр учреждения
+    viewInstitution: async function(id) {
+        const institution = this.data.find(i => i.id === id);
+        if (!institution) {
+            showNotification('error', 'Учреждение не найдено');
+            return;
+        }
+        
+        const content = `
+            <div class="detail-section">
+                <h3>Основная информация</h3>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <label>Название</label>
+                        <span>${escapeHtml(institution.name)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Тип</label>
+                        <span>${escapeHtml(institution.type)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Регион</label>
+                        <span>${escapeHtml(institution.region || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Адрес</label>
+                        <span>${escapeHtml(institution.address || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Телефон</label>
+                        <span>${institution.phone ? formatPhone(institution.phone) : '-'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Email</label>
+                        <span>${escapeHtml(institution.email || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Сайт</label>
+                        <span>${escapeHtml(institution.website || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Дата создания</label>
+                        <span>${formatDate(institution.created_at)}</span>
+                    </div>
+                </div>
+            </div>
+            ${institution.description ? `
+                <div class="detail-section">
+                    <h3>Описание</h3>
+                    <p>${escapeHtml(institution.description)}</p>
+                </div>
+            ` : ''}
+        `;
+        
+        const buttons = [
+            { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-secondary' }
+        ];
+        
+        if (canAccess('institutions.edit')) {
+            buttons.unshift({
+                label: 'Редактировать',
+                onclick: `institutionsPage.edit(${id})`,
+                class: 'btn-primary'
+            });
+        }
+        
+        showModal(institution.name, content, buttons);
+    }
 };
 
 // Экспорт

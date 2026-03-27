@@ -109,7 +109,7 @@ const staffPage = {
                                         <td>${staff.phone ? formatPhone(staff.phone) : '-'}</td>
                                         <td>
                                             <div class="table-actions">
-                                                <button class="btn-icon" onclick="viewStaff(${staff.id})" title="Просмотр">
+                                                <button class="btn-icon" onclick="staffPage.viewStaff(${staff.id})" title="Просмотр">
                                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                                         <circle cx="12" cy="12" r="3"></circle>
@@ -390,7 +390,72 @@ const staffPage = {
         }
     },
     
-    filters: {}
+    filters: {},
+    
+    // Просмотр работника
+    viewStaff: async function(id) {
+        const staff = this.data.find(s => s.id === id);
+        if (!staff) {
+            showNotification('error', 'Работник не найден');
+            return;
+        }
+        
+        const institution = this.institutions.find(i => i.id === staff.institution_id);
+        
+        const content = `
+            <div class="detail-section">
+                <h3>Основная информация</h3>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <label>ФИО</label>
+                        <span>${escapeHtml(staff.full_name)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Должность</label>
+                        <span>${escapeHtml(staff.position)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Учреждение</label>
+                        <span>${institution ? escapeHtml(institution.name) : '-'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Дата приема</label>
+                        <span>${formatDate(staff.hire_date)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Образование</label>
+                        <span>${escapeHtml(staff.education || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Специальность</label>
+                        <span>${escapeHtml(staff.specialty || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Телефон</label>
+                        <span>${staff.phone ? formatPhone(staff.phone) : '-'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Email</label>
+                        <span>${escapeHtml(staff.email || '-')}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const buttons = [
+            { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-secondary' }
+        ];
+        
+        if (canAccess('staff.edit')) {
+            buttons.unshift({
+                label: 'Редактировать',
+                onclick: `staffPage.edit(${id})`,
+                class: 'btn-primary'
+            });
+        }
+        
+        showModal(staff.full_name, content, buttons);
+    }
 };
 
 // Экспорт

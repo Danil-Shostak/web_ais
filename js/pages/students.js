@@ -105,7 +105,7 @@ const studentsPage = {
                                         <td>${truncateText(student.address, 25) || '-'}</td>
                                         <td>
                                             <div class="table-actions">
-                                                <button class="btn-icon" onclick="viewStudent(${student.id})" title="Просмотр">
+                                                <button class="btn-icon" onclick="studentsPage.viewStudent(${student.id})" title="Просмотр">
                                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                                         <circle cx="12" cy="12" r="3"></circle>
@@ -383,7 +383,72 @@ const studentsPage = {
         }
     },
     
-    filters: {}
+    filters: {},
+    
+    // Просмотр учащегося
+    viewStudent: async function(id) {
+        const student = this.data.find(s => s.id === id);
+        if (!student) {
+            showNotification('error', 'Учащийся не найден');
+            return;
+        }
+        
+        const institution = this.institutions.find(i => i.id === student.institution_id);
+        
+        const content = `
+            <div class="detail-section">
+                <h3>Основная информация</h3>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <label>ФИО</label>
+                        <span>${escapeHtml(student.full_name)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Дата рождения</label>
+                        <span>${formatDate(student.birth_date)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Пол</label>
+                        <span>${student.gender === 'male' ? 'Мужской' : 'Женский'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Класс</label>
+                        <span>${escapeHtml(student.grade)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Учреждение</label>
+                        <span>${institution ? escapeHtml(institution.name) : '-'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Адрес</label>
+                        <span>${escapeHtml(student.address || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>ФИО родителя</label>
+                        <span>${escapeHtml(student.parent_name || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Телефон родителя</label>
+                        <span>${student.parent_phone ? formatPhone(student.parent_phone) : '-'}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const buttons = [
+            { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-secondary' }
+        ];
+        
+        if (canAccess('students.edit')) {
+            buttons.unshift({
+                label: 'Редактировать',
+                onclick: `studentsPage.edit(${id})`,
+                class: 'btn-primary'
+            });
+        }
+        
+        showModal(student.full_name, content, buttons);
+    }
 };
 
 // Экспорт
