@@ -337,7 +337,7 @@ const staffPage = {
         const formData = {
             full_name: document.getElementById('full_name').value.trim(),
             position: document.getElementById('position').value,
-            institution_id: parseInt(document.getElementById('institution_id').value),
+            institution_id: document.getElementById('institution_id').value,
             hire_date: document.getElementById('hire_date').value,
             education: document.getElementById('education').value.trim() || null,
             specialty: document.getElementById('specialty').value.trim() || null,

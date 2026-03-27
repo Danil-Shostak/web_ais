@@ -331,7 +331,7 @@ const studentsPage = {
             full_name: document.getElementById('full_name').value.trim(),
             birth_date: document.getElementById('birth_date').value,
             gender: document.getElementById('gender').value,
-            institution_id: parseInt(document.getElementById('institution_id').value),
+            institution_id: document.getElementById('institution_id').value,
             grade: parseInt(document.getElementById('grade').value),
             address: document.getElementById('address').value.trim() || null,
             parent_name: document.getElementById('parent_name').value.trim() || null,
