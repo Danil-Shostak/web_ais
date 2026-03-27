@@ -106,7 +106,6 @@ const studentsPage = {
                                         <td>
                                             <div class="table-actions">
                                                 <button class="btn-icon" onclick="viewStudent(${student.id})" title="Просмотр">
-                                                    👁️
                                                 </button>
                                                 ${canAccess('students.edit') ? `
                                                     <button class="btn-icon" onclick="studentsPage.edit(${student.id})" title="Редактировать">

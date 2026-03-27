@@ -114,16 +114,16 @@ const institutionsPage = {
                                     <td>
                                         <div class="table-actions">
                                             <button class="btn-icon" onclick="viewInstitution(${inst.id})" title="Просмотр">
-                                                
+                                                👁️
                                             </button>
                                             ${canAccess('institutions.edit') ? `
                                                 <button class="btn-icon" onclick="institutionsPage.edit(${inst.id})" title="Редактировать">
-                                                    
+                                                    ✏️
                                                 </button>
                                             ` : ''}
                                             ${canAccess('institutions.delete') ? `
                                                 <button class="btn-icon" onclick="institutionsPage.delete(${inst.id})" title="Удалить">
-                                                    
+                                                    🗑️
                                                 </button>
                                             ` : ''}
                                         </div>
