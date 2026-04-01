@@ -32,6 +32,8 @@ async function initAuth() {
             }
             
             currentUser = JSON.parse(savedUser);
+            // Обновляем window.currentUser
+            window.currentUser = currentUser;
             // Проверка блокировки
             const blockedUsers = JSON.parse(localStorage.getItem('blockedUsers') || '[]');
             if (blockedUsers.includes(user.id)) {
@@ -162,6 +164,9 @@ async function handleLogin(event) {
             role: profile?.role || 'user',
             profile: profile
         };
+        
+        // Обновляем window.currentUser для доступа из других модулей
+        window.currentUser = currentUser;
         
         localStorage.setItem('current_user', JSON.stringify(currentUser));
         

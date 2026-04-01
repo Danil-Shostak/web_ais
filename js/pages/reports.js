@@ -259,7 +259,7 @@ const reportsPage = {
             name: 'Название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
             address: 'Адрес', phone: 'Телефон', email: 'Email',
             birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс',
-            institution_id: 'ID учреждения', parent_name: 'ФИО родителя',
+            institution_id: 'ID учреждения',
             parent_phone: 'Телефон родителя', position: 'Должность',
             hire_date: 'Дата принятия', education: 'Образование',
             specialty: 'Специальность', website: 'Сайт', description: 'Описание'

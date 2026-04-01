@@ -139,28 +139,40 @@ function showNotification(type, message) {
 }
 
 function showNotifications() {
-    const unread = appNotifications.filter(n => !n.read).length;
-    
     const typeLabels = { success: 'Успех', error: 'Ошибка', warning: 'Предупреждение', info: 'Информация' };
     const typeColors = { success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#06b6d4' };
+    const typeIcons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
     
-    const content = appNotifications.length === 0
-        ? '<p class="text-muted text-center" style="padding: 24px;">Нет уведомлений</p>'
-        : `<div style="max-height: 400px; overflow-y: auto;">
-            ${appNotifications.map(n => `
-                <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); display: flex; gap: 12px; align-items: flex-start; ${n.read ? 'opacity: 0.6;' : ''}">
-                    <span style="color: ${typeColors[n.type] || '#64748b'}; font-size: 18px; flex-shrink: 0;">${{success:'✓',error:'✕',warning:'⚠',info:'ℹ'}[n.type]}</span>
-                    <div style="flex: 1;">
-                        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 2px;">${typeLabels[n.type] || n.type} · ${formatNotifTime(n.time)}</div>
-                        <div>${n.message}</div>
-                    </div>
-                    ${!n.read ? '<span style="width:8px;height:8px;border-radius:50%;background:var(--primary-color);flex-shrink:0;margin-top:4px;"></span>' : ''}
-                </div>
-            `).join('')}
-          </div>`;
+    // Строим содержимое модального окна
+    let content;
+    if (!appNotifications || appNotifications.length === 0) {
+        content = '<p class="text-muted text-center" style="padding: 24px;">Нет уведомлений</p>';
+    } else {
+        content = '<div style="max-height: 400px; overflow-y: auto;">';
+        appNotifications.forEach(function(n) {
+            const icon = typeIcons[n.type] || 'ℹ';
+            const color = typeColors[n.type] || '#64748b';
+            const label = typeLabels[n.type] || n.type;
+            const timeStr = formatNotifTime(n.time);
+            const opacity = n.read ? 'opacity: 0.6;' : '';
+            const dot = n.read ? '' : '<span style="width:8px;height:8px;border-radius:50%;background:var(--primary-color);flex-shrink:0;margin-top:4px;"></span>';
+            
+            content += '<div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); display: flex; gap: 12px; align-items: flex-start; ' + opacity + '">';
+            content += '<span style="color: ' + color + '; font-size: 18px; flex-shrink: 0;">' + icon + '</span>';
+            content += '<div style="flex: 1;">';
+            content += '<div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 2px;">' + label + ' · ' + timeStr + '</div>';
+            content += '<div>' + n.message + '</div>';
+            content += '</div>';
+            content += dot;
+            content += '</div>';
+        });
+        content += '</div>';
+    }
     
     // Помечаем все как прочитанные
-    appNotifications.forEach(n => { n.read = true; });
+    if (appNotifications && appNotifications.length > 0) {
+        appNotifications.forEach(function(n) { n.read = true; });
+    }
     const badge = document.getElementById('notificationBadge');
     if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
     
@@ -250,6 +262,7 @@ function loadNavigation() {
         { id: 'statistics', icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>`, label: 'Статистика', roles: ['admin', 'editor', 'user'] },
         { id: 'reports', icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`, label: 'Отчеты', roles: ['admin', 'editor'] },
         { id: 'import', icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`, label: 'Импорт', roles: ['admin', 'editor'] },
+        { id: 'admin', icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>`, label: 'Администрирование', roles: ['admin'] },
         { id: 'settings', icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`, label: 'Настройки', roles: ['admin', 'editor', 'user'] }
     ];
     

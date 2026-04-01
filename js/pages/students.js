@@ -203,16 +203,10 @@ const studentsPage = {
                                 <input type="text" id="address" placeholder="Улица, дом, квартира">
                             </div>
                             
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="parent_name">ФИО родителя</label>
-                                    <input type="text" id="parent_name" placeholder="ФИО одного из родителей">
-                                </div>
-                                <div class="form-group">
-                                    <label for="parent_phone">Телефон родителя</label>
-                                    <input type="text" id="parent_phone" placeholder="+375 (XX) XXX-XX-XX">
-                                    <span class="error-message" id="parent_phoneError"></span>
-                                </div>
+                            <div class="form-group">
+                                <label for="parent_phone">Телефон родителя</label>
+                                <input type="text" id="parent_phone" placeholder="+375 (XX) XXX-XX-XX">
+                                <span class="error-message" id="parent_phoneError"></span>
                             </div>
                             
                             <div class="form-actions">
@@ -293,7 +287,6 @@ const studentsPage = {
         document.getElementById('institution_id').value = student.institution_id || '';
         document.getElementById('grade').value = student.grade || '';
         document.getElementById('address').value = student.address || '';
-        document.getElementById('parent_name').value = student.parent_name || '';
         document.getElementById('parent_phone').value = student.parent_phone || '';
         
         document.getElementById('formModal').classList.add('active');
@@ -343,7 +336,6 @@ const studentsPage = {
             institution_id: document.getElementById('institution_id').value,
             grade: parseInt(document.getElementById('grade').value),
             address: document.getElementById('address').value.trim() || null,
-            parent_name: document.getElementById('parent_name').value.trim() || null,
             parent_phone: document.getElementById('parent_phone').value.trim() || null
         };
         
@@ -422,10 +414,6 @@ const studentsPage = {
                     <div class="detail-item">
                         <label>Адрес</label>
                         <span>${escapeHtml(student.address || '-')}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>ФИО родителя</label>
-                        <span>${escapeHtml(student.parent_name || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <label>Телефон родителя</label>

@@ -302,15 +302,26 @@ const institutionsPage = {
             this.mapInstance = null;
         }
         
-        // Координаты центров регионов Беларуси
+        // Реальные координаты областных центров Беларуси
         const regionCoords = {
-            'Минск':              [53.9045, 27.5615],
-            'Минская область':    [53.7,    27.8],
-            'Брестская область':  [52.1,    23.7],
-            'Гомельская область': [52.4,    31.0],
-            'Гродненская область':[53.7,    24.5],
-            'Могилевская область':[53.9,    30.3],
-            'Витебская область':  [55.2,    29.8]
+            'Минск':               [53.9045, 27.5615],
+            'Минская область':     [53.5000, 27.2000],
+            'Брестская область':   [52.0976, 23.7340],
+            'Гомельская область':  [52.4345, 30.9754],
+            'Гродненская область': [53.6788, 23.8460],
+            'Могилевская область': [53.8985, 30.3300],
+            'Витебская область':   [55.1836, 30.2049]
+        };
+        
+        // Границы регионов для распределения маркеров (latMin, latMax, lngMin, lngMax)
+        const regionBounds = {
+            'Минск':               [53.85, 53.96, 27.45, 27.68],
+            'Минская область':     [52.80, 54.40, 26.50, 28.50],
+            'Брестская область':   [51.60, 52.80, 22.70, 25.20],
+            'Гомельская область':  [51.40, 53.20, 29.00, 32.50],
+            'Гродненская область': [53.10, 54.30, 23.00, 25.50],
+            'Могилевская область': [53.10, 54.30, 29.50, 31.80],
+            'Витебская область':   [54.50, 56.20, 27.50, 31.00]
         };
         
         const map = L.map(container).setView([53.7, 27.9], 6);
@@ -334,37 +345,49 @@ const institutionsPage = {
         const filteredData = this.filterData();
         
         filteredData.forEach(inst => {
-            const baseCoords = regionCoords[inst.region] || [53.9, 27.5];
             const key = inst.region || 'default';
             regionCounters[key] = (regionCounters[key] || 0) + 1;
             const n = regionCounters[key];
             
-            // Смещение для разных учреждений в одном регионе
-            const angle = (n * 2.4) % (2 * Math.PI);
-            const radius = 0.05 * Math.ceil(n / 10);
-            const lat = baseCoords[0] + radius * Math.sin(angle);
-            const lng = baseCoords[1] + radius * Math.cos(angle);
+            let lat, lng;
+            const bounds = regionBounds[key];
+            if (bounds) {
+                // Равномерное распределение маркеров внутри границ региона
+                const latRange = bounds[1] - bounds[0];
+                const lngRange = bounds[3] - bounds[2];
+                const cols = Math.ceil(Math.sqrt(n));
+                const rows = Math.ceil(n / cols);
+                const col = (n - 1) % cols;
+                const row = Math.floor((n - 1) / cols);
+                lat = bounds[0] + (latRange / (rows + 1)) * (row + 1);
+                lng = bounds[2] + (lngRange / (cols + 1)) * (col + 1);
+            } else {
+                const baseCoords = regionCoords[key] || [53.9, 27.5];
+                lat = baseCoords[0];
+                lng = baseCoords[1];
+            }
             
             const color = typeColors[inst.type] || '#64748b';
             
             const icon = L.divIcon({
                 className: '',
-                html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></div>`,
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
+                html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4);"></div>`,
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
             });
             
             const marker = L.marker([lat, lng], { icon }).addTo(map);
             marker.bindPopup(`
-                <div style="min-width:200px;">
+                <div style="min-width:220px;">
                     <strong style="font-size:14px;">${escapeHtml(inst.name)}</strong><br>
                     <span style="color:#64748b;font-size:12px;">${inst.type || ''}</span><br>
-                    <span style="font-size:12px;">${inst.region || ''}</span><br>
+                    <span style="font-size:12px;">📍 ${inst.region || ''}</span><br>
                     ${inst.address ? `<span style="font-size:12px;">${escapeHtml(inst.address)}</span><br>` : ''}
                     ${inst.phone ? `<span style="font-size:12px;">📞 ${escapeHtml(inst.phone)}</span><br>` : ''}
+                    ${inst.email ? `<span style="font-size:12px;">✉️ ${escapeHtml(inst.email)}</span><br>` : ''}
                     <button onclick="institutionsPage.viewInstitution('${inst.id}')" style="margin-top:6px;padding:4px 10px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">Подробнее</button>
                 </div>
-            `, { maxWidth: 260 });
+            `, { maxWidth: 280 });
         });
         
         // Легенда
