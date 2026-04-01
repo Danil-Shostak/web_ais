@@ -85,8 +85,32 @@ function hideLoader() {
     document.getElementById('loader').classList.add('hidden');
 }
 
-// Показать уведомление
+// ========================================
+// Система уведомлений (in-app)
+// ========================================
+const appNotifications = [];
+
 function showNotification(type, message) {
+    // Добавляем в хранилище
+    const notif = {
+        id: Date.now(),
+        type: type,
+        message: message,
+        time: new Date(),
+        read: false
+    };
+    appNotifications.unshift(notif);
+    if (appNotifications.length > 50) appNotifications.pop();
+    
+    // Обновляем badge
+    const unread = appNotifications.filter(n => !n.read).length;
+    const badge = document.getElementById('notificationBadge');
+    if (badge) {
+        badge.textContent = unread > 99 ? '99+' : unread;
+        badge.style.display = unread > 0 ? 'flex' : 'none';
+    }
+    
+    // Показываем toast уведомление
     const container = document.getElementById('notifications');
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
@@ -112,6 +136,53 @@ function showNotification(type, message) {
             notification.remove();
         }
     }, 5000);
+}
+
+function showNotifications() {
+    const unread = appNotifications.filter(n => !n.read).length;
+    
+    const typeLabels = { success: 'Успех', error: 'Ошибка', warning: 'Предупреждение', info: 'Информация' };
+    const typeColors = { success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#06b6d4' };
+    
+    const content = appNotifications.length === 0
+        ? '<p class="text-muted text-center" style="padding: 24px;">Нет уведомлений</p>'
+        : `<div style="max-height: 400px; overflow-y: auto;">
+            ${appNotifications.map(n => `
+                <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); display: flex; gap: 12px; align-items: flex-start; ${n.read ? 'opacity: 0.6;' : ''}">
+                    <span style="color: ${typeColors[n.type] || '#64748b'}; font-size: 18px; flex-shrink: 0;">${{success:'✓',error:'✕',warning:'⚠',info:'ℹ'}[n.type]}</span>
+                    <div style="flex: 1;">
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 2px;">${typeLabels[n.type] || n.type} · ${formatNotifTime(n.time)}</div>
+                        <div>${n.message}</div>
+                    </div>
+                    ${!n.read ? '<span style="width:8px;height:8px;border-radius:50%;background:var(--primary-color);flex-shrink:0;margin-top:4px;"></span>' : ''}
+                </div>
+            `).join('')}
+          </div>`;
+    
+    // Помечаем все как прочитанные
+    appNotifications.forEach(n => { n.read = true; });
+    const badge = document.getElementById('notificationBadge');
+    if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
+    
+    showModal('Уведомления', content, [
+        { label: 'Очистить все', onclick: 'clearAllNotifications(); closeModal();', class: 'btn-secondary' },
+        { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-primary' }
+    ]);
+}
+
+function formatNotifTime(date) {
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
+    if (diff < 60) return 'только что';
+    if (diff < 3600) return `${Math.floor(diff/60)} мин. назад`;
+    if (diff < 86400) return `${Math.floor(diff/3600)} ч. назад`;
+    return date.toLocaleDateString('ru-RU');
+}
+
+function clearAllNotifications() {
+    appNotifications.length = 0;
+    const badge = document.getElementById('notificationBadge');
+    if (badge) { badge.textContent = '0'; badge.style.display = 'none'; }
 }
 
 // Показать модальное окно

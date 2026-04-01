@@ -584,13 +584,24 @@ const api = {
     // Получение всех пользователей (для админа)
     async getUsers() {
         try {
+            // Получаем текущую сессию для извлечения email
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .order('created_at', { ascending: false });
             
             if (error) throw error;
-            return data || [];
+            
+            // Добавляем email из auth для каждого профиля
+            const users = (data || []).map(profile => ({
+                ...profile,
+                email: authUser?.email || '—',
+                id: profile.user_id || profile.id
+            }));
+            
+            return users;
         } catch (error) {
             console.error('Error fetching users:', error);
             throw error;

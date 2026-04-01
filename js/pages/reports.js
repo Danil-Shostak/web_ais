@@ -246,34 +246,85 @@ const reportsPage = {
         }
     },
     
-    // Генерация PDF
+    // Генерация PDF (использует pdfmake с поддержкой кириллицы)
     generatePDF: async function(data, type, filename) {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+        const typeLabels = {
+            institution: 'Отчет по учреждению',
+            students: 'Отчет по учащимся',
+            staff: 'Отчет по работникам',
+            statistics: 'Статистический отчет'
+        };
+        
+        const fieldLabels = {
+            name: 'Название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
+            address: 'Адрес', phone: 'Телефон', email: 'Email',
+            birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс',
+            institution_id: 'ID учреждения', parent_name: 'ФИО родителя',
+            parent_phone: 'Телефон родителя', position: 'Должность',
+            hire_date: 'Дата принятия', education: 'Образование',
+            specialty: 'Специальность', website: 'Сайт', description: 'Описание'
+        };
+        
+        const content = [];
         
         // Заголовок
-        doc.setFontSize(18);
-        doc.text('АИИО РБ - Отчет', 14, 20);
+        content.push({
+            text: 'АИИО РБ — Автоматизация информации учреждений образования РБ',
+            style: 'header',
+            margin: [0, 0, 0, 8]
+        });
+        content.push({
+            text: typeLabels[type] || 'Отчет',
+            style: 'subheader',
+            margin: [0, 0, 0, 4]
+        });
+        content.push({
+            text: `Дата формирования: ${new Date().toLocaleDateString('ru-RU')}`,
+            style: 'small',
+            margin: [0, 0, 0, 16]
+        });
         
-        doc.setFontSize(12);
-        doc.text(`Тип отчета: ${type}`, 14, 30);
-        doc.text(`Дата: ${new Date().toLocaleDateString('ru-RU')}`, 14, 36);
-        
-        // Таблица данных
         if (data.length > 0) {
-            const headers = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
-            const rows = data.map(item => headers.map(h => String(item[h] || '-')));
+            const keys = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at', 'institution_id'].includes(k));
+            const headers = keys.map(k => ({ text: fieldLabels[k] || k, style: 'tableHeader' }));
+            const rows = data.map(item =>
+                keys.map(h => ({ text: String(item[h] || '—'), style: 'tableCell' }))
+            );
             
-            doc.autoTable({
-                head: [headers],
-                body: rows,
-                startY: 45,
-                styles: { fontSize: 8 },
-                headStyles: { fillColor: [37, 99, 235] }
+            content.push({
+                table: {
+                    headerRows: 1,
+                    widths: keys.map(() => '*'),
+                    body: [headers, ...rows]
+                },
+                layout: {
+                    fillColor: (rowIndex) => rowIndex === 0 ? '#2563eb' : (rowIndex % 2 === 0 ? '#f8fafc' : null)
+                }
             });
+            
+            content.push({
+                text: `Итого записей: ${data.length}`,
+                style: 'small',
+                margin: [0, 12, 0, 0]
+            });
+        } else {
+            content.push({ text: 'Данные отсутствуют', style: 'small' });
         }
         
-        doc.save(filename + '.pdf');
+        const docDef = {
+            content: content,
+            defaultStyle: { font: 'Roboto', fontSize: 9 },
+            styles: {
+                header: { fontSize: 14, bold: true, color: '#1e293b' },
+                subheader: { fontSize: 11, bold: true, color: '#2563eb' },
+                small: { fontSize: 9, color: '#64748b' },
+                tableHeader: { bold: true, color: '#ffffff', fontSize: 9 },
+                tableCell: { fontSize: 8, color: '#1e293b' }
+            },
+            pageMargins: [30, 40, 30, 40]
+        };
+        
+        pdfMake.createPdf(docDef).download(filename + '.pdf');
     },
     
     // Генерация Excel

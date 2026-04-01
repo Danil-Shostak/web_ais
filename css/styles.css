@@ -640,6 +640,31 @@ input:focus, select:focus, textarea:focus {
     font-size: 13px;
 }
 
+.btn-group {
+    display: flex;
+    gap: 0;
+}
+
+.btn-group .btn-secondary {
+    border-radius: 0;
+    border-right: 1px solid var(--border-color);
+}
+
+.btn-group .btn-secondary:first-child {
+    border-radius: var(--border-radius) 0 0 var(--border-radius);
+}
+
+.btn-group .btn-secondary:last-child {
+    border-radius: 0 var(--border-radius) var(--border-radius) 0;
+    border-right: none;
+}
+
+.btn-group .btn-secondary.active {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
 .btn-icon {
     padding: 8px;
     background: none;
@@ -1159,4 +1184,79 @@ tbody tr:hover {
     .grid-2, .grid-3 {
         grid-template-columns: 1fr;
     }
+}
+
+/* ========================================
+   Тёмная тема
+   ======================================== */
+body.dark-theme {
+    --bg-color: #0f172a;
+    --bg-card: #1e293b;
+    --bg-sidebar: #0f172a;
+    --bg-sidebar-hover: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-light: #64748b;
+    --border-color: #334155;
+}
+
+body.dark-theme .top-bar {
+    background: #1e293b;
+    border-bottom-color: #334155;
+}
+
+body.dark-theme .filters-bar {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+body.dark-theme input,
+body.dark-theme select,
+body.dark-theme textarea {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
+}
+
+body.dark-theme input::placeholder {
+    color: #64748b;
+}
+
+body.dark-theme .modal-content {
+    background: #1e293b;
+    border: 1px solid #334155;
+}
+
+body.dark-theme .modal-header {
+    border-bottom-color: #334155;
+}
+
+body.dark-theme .modal-footer {
+    border-top-color: #334155;
+}
+
+body.dark-theme .notification {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+body.dark-theme .login-container {
+    background: #1e293b;
+    border: 1px solid #334155;
+}
+
+body.dark-theme thead {
+    background: #0f172a;
+}
+
+body.dark-theme tbody tr:hover {
+    background: #0f172a;
+}
+
+body.dark-theme .chart-container {
+    background: #1e293b;
+}
+
+body.dark-theme .map-container {
+    filter: brightness(0.85) saturate(0.9);
 }

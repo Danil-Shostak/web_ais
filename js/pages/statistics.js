@@ -205,34 +205,48 @@ const statisticsPage = {
     
     // Рисование графиков
     renderCharts: function() {
+        const chartTypeEl = document.getElementById('chartType');
+        const selectedType = chartTypeEl ? chartTypeEl.value : 'bar';
+        
+        // Определение опций в зависимости от типа
+        const isPie = selectedType === 'pie';
+        const baseOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: isPie,
+                    position: 'bottom',
+                    labels: { padding: 15, usePointStyle: true }
+                }
+            }
+        };
+        if (!isPie) {
+            baseOptions.scales = { y: { beginAtZero: true } };
+        }
+        
         // График по типам
         const typeCtx = document.getElementById('typeChart');
         if (typeCtx) {
             const typeStats = this.getTypeStats();
             if (this.charts.type) this.charts.type.destroy();
             
+            const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
             this.charts.type = new Chart(typeCtx, {
-                type: 'pie',
+                type: selectedType,
                 data: {
                     labels: typeStats.map(s => s.type),
                     datasets: [{
+                        label: 'Учреждений',
                         data: typeStats.map(s => s.count),
-                        backgroundColor: [
-                            '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
-                        ],
-                        borderWidth: 0
+                        backgroundColor: isPie ? colors : '#2563eb',
+                        borderColor: selectedType === 'line' ? '#2563eb' : undefined,
+                        fill: selectedType === 'line',
+                        tension: 0.4,
+                        borderWidth: isPie ? 0 : 1
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { padding: 15, usePointStyle: true }
-                        }
-                    }
-                }
+                options: JSON.parse(JSON.stringify(baseOptions))
             });
         }
         
@@ -242,57 +256,50 @@ const statisticsPage = {
             const regionStats = this.getRegionStats();
             if (this.charts.region) this.charts.region.destroy();
             
+            const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+            const vals = Object.values(regionStats);
             this.charts.region = new Chart(regionCtx, {
-                type: 'bar',
+                type: selectedType,
                 data: {
                     labels: Object.keys(regionStats),
                     datasets: [{
                         label: 'Количество',
-                        data: Object.values(regionStats),
-                        backgroundColor: '#2563eb'
+                        data: vals,
+                        backgroundColor: isPie ? colors.slice(0, vals.length) : '#10b981',
+                        borderColor: selectedType === 'line' ? '#10b981' : undefined,
+                        fill: selectedType === 'line',
+                        tension: 0.4,
+                        borderWidth: isPie ? 0 : 1
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: { beginAtZero: true }
-                    }
-                }
+                options: JSON.parse(JSON.stringify(baseOptions))
             });
         }
         
-        // График по годам
+        // График по годам (всегда линейный — динамика)
         const timelineCtx = document.getElementById('timelineChart');
         if (timelineCtx) {
             const yearStats = this.getYearStats();
             if (this.charts.timeline) this.charts.timeline.destroy();
             
             this.charts.timeline = new Chart(timelineCtx, {
-                type: 'line',
+                type: selectedType === 'pie' ? 'bar' : selectedType,
                 data: {
                     labels: Object.keys(yearStats),
                     datasets: [{
                         label: 'Создано учреждений',
                         data: Object.values(yearStats),
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        fill: true,
+                        borderColor: '#f59e0b',
+                        backgroundColor: selectedType === 'line' ? 'rgba(245,158,11,0.1)' : '#f59e0b',
+                        fill: selectedType === 'line',
                         tension: 0.4
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: { beginAtZero: true }
-                    }
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
                 }
             });
         }

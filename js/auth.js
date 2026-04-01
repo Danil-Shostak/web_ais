@@ -32,6 +32,15 @@ async function initAuth() {
             }
             
             currentUser = JSON.parse(savedUser);
+            // Проверка блокировки
+            const blockedUsers = JSON.parse(localStorage.getItem('blockedUsers') || '[]');
+            if (blockedUsers.includes(user.id)) {
+                localStorage.removeItem('current_user');
+                localStorage.removeItem('authToken');
+                await supabase.auth.signOut();
+                showLogin();
+                return;
+            }
             // Загрузка профиля пользователя из Supabase
             const profile = await api.getProfile(user.id);
             if (profile) {

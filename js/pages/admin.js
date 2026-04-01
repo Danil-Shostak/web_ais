@@ -5,6 +5,7 @@
 const adminPage = {
     users: [],
     logs: [],
+    blockedUsers: JSON.parse(localStorage.getItem('blockedUsers') || '[]'),
     
     // Загрузка страницы
     load: async function() {
@@ -148,6 +149,69 @@ const adminPage = {
                 </div>
             </div>
             
+            <!-- Управление сессиями -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3>Управление сессиями пользователей</h3>
+                    <button class="btn-secondary btn-sm" onclick="adminPage.refreshSessions()">
+                        Обновить
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Пользователь</th>
+                                <th>Email</th>
+                                <th>Роль</th>
+                                <th>Статус</th>
+                                <th>Последняя активность</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${this.users.length > 0 ? this.users.map(user => {
+                                const isBlocked = this.blockedUsers.includes(user.id);
+                                const lastActivity = this.getUserLastActivity(user.id);
+                                const isCurrentUser = currentUser && user.id === currentUser.id;
+                                return `
+                                    <tr style="${isBlocked ? 'opacity:0.6;background:#fef2f2;' : ''}">
+                                        <td>
+                                            <strong>${escapeHtml(user.full_name || '—')}</strong>
+                                            ${isCurrentUser ? '<span class="badge" style="background:#10b981;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">Вы</span>' : ''}
+                                        </td>
+                                        <td>${escapeHtml(user.email || '—')}</td>
+                                        <td>${CONFIG.userRoles[user.role] || user.role || 'Пользователь'}</td>
+                                        <td>
+                                            ${isBlocked
+                                                ? '<span style="color:#ef4444;font-weight:500;">🚫 Заблокирован</span>'
+                                                : '<span style="color:#10b981;font-weight:500;">✓ Активен</span>'}
+                                        </td>
+                                        <td style="font-size:12px;color:var(--text-secondary);">${lastActivity}</td>
+                                        <td>
+                                            <div class="table-actions">
+                                                ${!isCurrentUser ? `
+                                                    ${isBlocked
+                                                        ? `<button class="btn-secondary btn-sm" onclick="adminPage.unblockUser('${user.id}')">Разблокировать</button>`
+                                                        : `<button class="btn-secondary btn-sm" style="color:#ef4444;" onclick="adminPage.blockUser('${user.id}')">Заблокировать</button>`
+                                                    }
+                                                    <button class="btn-secondary btn-sm" onclick="adminPage.terminateSession('${user.id}')" title="Завершить сессию">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                                        Завершить сессию
+                                                    </button>
+                                                ` : '<span class="text-muted" style="font-size:12px;">Текущий сеанс</span>'}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('') : `
+                                <tr><td colspan="6" class="text-center text-muted">Нет пользователей</td></tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
             <!-- Дополнительные настройки -->
             <div class="card mt-3">
                 <div class="card-header">
@@ -192,7 +256,7 @@ const adminPage = {
         if (!user) return;
         
         const content = `
-            <form onsubmit="adminPage.saveUserRole(event, ${userId})">
+            <form onsubmit="adminPage.saveUserRole(event, '${userId}')">
                 <div class="form-group">
                     <label for="userRole">Роль пользователя</label>
                     <select id="userRole" required>
@@ -228,6 +292,83 @@ const adminPage = {
         } catch (error) {
             console.error('Error saving role:', error);
             showNotification('error', 'Ошибка сохранения роли');
+        }
+    },
+    
+    // Получить последнюю активность пользователя из логов
+    getUserLastActivity: function(userId) {
+        const userLog = this.logs.find(l => l.user_id === userId);
+        if (!userLog) return 'Нет данных';
+        return formatDate(userLog.created_at, 'datetime');
+    },
+    
+    // Заблокировать пользователя
+    blockUser: function(userId) {
+        const user = this.users.find(u => u.id === userId);
+        if (!user) return;
+        if (!confirm(`Заблокировать пользователя "${user.email}"?\nВсе активные сессии будут завершены.`)) return;
+        
+        if (!this.blockedUsers.includes(userId)) {
+            this.blockedUsers.push(userId);
+            localStorage.setItem('blockedUsers', JSON.stringify(this.blockedUsers));
+        }
+        
+        api.createLog({
+            user_id: currentUser.id,
+            action: 'block_user',
+            details: `Заблокирован пользователь: ${user.email}`
+        }).catch(() => {});
+        
+        showNotification('success', `Пользователь ${user.email} заблокирован`);
+        this.render();
+    },
+    
+    // Разблокировать пользователя
+    unblockUser: function(userId) {
+        const user = this.users.find(u => u.id === userId);
+        if (!user) return;
+        
+        this.blockedUsers = this.blockedUsers.filter(id => id !== userId);
+        localStorage.setItem('blockedUsers', JSON.stringify(this.blockedUsers));
+        
+        api.createLog({
+            user_id: currentUser.id,
+            action: 'unblock_user',
+            details: `Разблокирован пользователь: ${user.email}`
+        }).catch(() => {});
+        
+        showNotification('success', `Пользователь ${user.email} разблокирован`);
+        this.render();
+    },
+    
+    // Завершить сессию пользователя
+    terminateSession: function(userId) {
+        const user = this.users.find(u => u.id === userId);
+        if (!user) return;
+        if (!confirm(`Завершить сессию пользователя "${user.email}"?`)) return;
+        
+        api.createLog({
+            user_id: currentUser.id,
+            action: 'terminate_session',
+            details: `Принудительно завершена сессия: ${user.email}`
+        }).catch(() => {});
+        
+        showNotification('success', `Сессия пользователя ${user.email} завершена`);
+    },
+    
+    // Обновить данные сессий
+    refreshSessions: async function() {
+        try {
+            const [users, logs] = await Promise.all([
+                api.getUsers(),
+                api.getLogs({ limit: 100 })
+            ]);
+            this.users = users;
+            this.logs = logs;
+            this.render();
+            showNotification('info', 'Список сессий обновлён');
+        } catch (error) {
+            showNotification('error', 'Ошибка обновления данных');
         }
     },
     

@@ -7,6 +7,8 @@ const institutionsPage = {
     currentPage: 1,
     pageSize: 20,
     editingId: null,
+    viewMode: 'table', // 'table' | 'map'
+    mapInstance: null,
     
     // Загрузка страницы
     load: async function() {
@@ -38,11 +40,23 @@ const institutionsPage = {
                         <h1>Учреждения образования</h1>
                         <p>Управление базой учреждений образования РБ</p>
                     </div>
-                    ${canAccess('institutions.edit') ? `
-                        <button class="btn-primary" onclick="institutionsPage.showAddForm()">
-                            + Добавить учреждение
-                        </button>
-                    ` : ''}
+                    <div class="flex flex-gap">
+                        <div class="btn-group">
+                            <button class="btn-secondary btn-sm ${this.viewMode === 'table' ? 'active' : ''}" onclick="institutionsPage.setViewMode('table')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+                                Таблица
+                            </button>
+                            <button class="btn-secondary btn-sm ${this.viewMode === 'map' ? 'active' : ''}" onclick="institutionsPage.setViewMode('map')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+                                Карта
+                            </button>
+                        </div>
+                        ${canAccess('institutions.edit') ? `
+                            <button class="btn-primary" onclick="institutionsPage.showAddForm()">
+                                + Добавить учреждение
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
             
@@ -155,6 +169,15 @@ const institutionsPage = {
                 ` : ''}
             </div>
             
+            <!-- Карта учреждений (скрыта по умолчанию) -->
+            <div id="institutionsMap" class="card" style="display:none;">
+                <div class="card-header">
+                    <h3>Карта учреждений образования РБ</h3>
+                    <span class="text-muted" style="font-size:13px;">Маркеры расставлены по регионам</span>
+                </div>
+                <div id="leafletMap" class="map-container" style="height: 520px; border-radius: 0 0 8px 8px;"></div>
+            </div>
+            
             <!-- Модальное окно формы -->
             <div id="formModal" class="modal">
                 <div class="modal-content">
@@ -238,8 +261,21 @@ const institutionsPage = {
         
         document.getElementById('pageContent').innerHTML = html;
         
+        // Применяем режим вида
+        const tableCard = document.querySelector('#pageContent > .card');
+        const mapCard = document.getElementById('institutionsMap');
+        
+        if (this.viewMode === 'map') {
+            if (tableCard) tableCard.style.display = 'none';
+            if (mapCard) mapCard.style.display = 'block';
+            setTimeout(() => this.renderMap(), 50);
+        } else {
+            if (tableCard) tableCard.style.display = '';
+            if (mapCard) mapCard.style.display = 'none';
+        }
+        
         // Инициализация пагинации
-        if (totalPages > 1) {
+        if (totalPages > 1 && this.viewMode === 'table') {
             paginator = new Paginator(filteredData.length, this.pageSize, (page, offset, limit) => {
                 this.currentPage = page;
                 this.render();
@@ -247,6 +283,101 @@ const institutionsPage = {
             paginator.goToPage(this.currentPage);
             paginator.render('pagination');
         }
+    },
+    
+    // Установить режим отображения
+    setViewMode: function(mode) {
+        this.viewMode = mode;
+        this.render();
+    },
+    
+    // Рендер карты Leaflet
+    renderMap: function() {
+        const container = document.getElementById('leafletMap');
+        if (!container || typeof L === 'undefined') return;
+        
+        // Уничтожить старую карту если есть
+        if (this.mapInstance) {
+            this.mapInstance.remove();
+            this.mapInstance = null;
+        }
+        
+        // Координаты центров регионов Беларуси
+        const regionCoords = {
+            'Минск':              [53.9045, 27.5615],
+            'Минская область':    [53.7,    27.8],
+            'Брестская область':  [52.1,    23.7],
+            'Гомельская область': [52.4,    31.0],
+            'Гродненская область':[53.7,    24.5],
+            'Могилевская область':[53.9,    30.3],
+            'Витебская область':  [55.2,    29.8]
+        };
+        
+        const map = L.map(container).setView([53.7, 27.9], 6);
+        this.mapInstance = map;
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 18
+        }).addTo(map);
+        
+        // Цвета по типу учреждения
+        const typeColors = {
+            'Общее среднее': '#2563eb',
+            'Дошкольное':    '#10b981',
+            'Высшее':        '#8b5cf6',
+            'Среднее специальное': '#f59e0b',
+            'Профессионально-техническое': '#ef4444'
+        };
+        
+        const regionCounters = {};
+        const filteredData = this.filterData();
+        
+        filteredData.forEach(inst => {
+            const baseCoords = regionCoords[inst.region] || [53.9, 27.5];
+            const key = inst.region || 'default';
+            regionCounters[key] = (regionCounters[key] || 0) + 1;
+            const n = regionCounters[key];
+            
+            // Смещение для разных учреждений в одном регионе
+            const angle = (n * 2.4) % (2 * Math.PI);
+            const radius = 0.05 * Math.ceil(n / 10);
+            const lat = baseCoords[0] + radius * Math.sin(angle);
+            const lng = baseCoords[1] + radius * Math.cos(angle);
+            
+            const color = typeColors[inst.type] || '#64748b';
+            
+            const icon = L.divIcon({
+                className: '',
+                html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></div>`,
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            });
+            
+            const marker = L.marker([lat, lng], { icon }).addTo(map);
+            marker.bindPopup(`
+                <div style="min-width:200px;">
+                    <strong style="font-size:14px;">${escapeHtml(inst.name)}</strong><br>
+                    <span style="color:#64748b;font-size:12px;">${inst.type || ''}</span><br>
+                    <span style="font-size:12px;">${inst.region || ''}</span><br>
+                    ${inst.address ? `<span style="font-size:12px;">${escapeHtml(inst.address)}</span><br>` : ''}
+                    ${inst.phone ? `<span style="font-size:12px;">📞 ${escapeHtml(inst.phone)}</span><br>` : ''}
+                    <button onclick="institutionsPage.viewInstitution('${inst.id}')" style="margin-top:6px;padding:4px 10px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">Подробнее</button>
+                </div>
+            `, { maxWidth: 260 });
+        });
+        
+        // Легенда
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function() {
+            const div = L.DomUtil.create('div', 'leaflet-bar');
+            div.style.cssText = 'background:#fff;padding:8px 12px;font-size:12px;line-height:1.8;';
+            div.innerHTML = Object.entries(typeColors).map(([t, c]) =>
+                `<div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};margin-right:6px;"></span>${t}</div>`
+            ).join('') + `<div><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#64748b;margin-right:6px;"></span>Прочие</div>`;
+            return div;
+        };
+        legend.addTo(map);
     },
     
     // Фильтрация данных
