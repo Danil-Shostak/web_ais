@@ -224,13 +224,13 @@ const institutionsPage = {
                             
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="city">Город *</label>
-                                    <input type="text" id="city" required placeholder="Минск">
+                                    <label for="city">Город/Населённый пункт *</label>
+                                    <input type="text" id="city" required placeholder="Новогрудок">
                                     <span class="error-message" id="cityError"></span>
                                 </div>
                                 <div class="form-group">
-                                    <label for="street">Улица</label>
-                                    <input type="text" id="street" placeholder="ул. Ленина">
+                                    <label for="street">Улица, дом</label>
+                                    <input type="text" id="street" placeholder="Мицкевича, 15">
                                     <span class="error-message" id="streetError"></span>
                                 </div>
                             </div>
@@ -238,7 +238,7 @@ const institutionsPage = {
                             <div class="form-group">
                                 <label for="address">Адрес (полный) *</label>
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="text" id="address" required placeholder="Город, Улица, Дом" style="flex: 1;">
+                                    <input type="text" id="address" required placeholder="Новогрудок, Мицкевича, 15" style="flex: 1;">
                                     <button type="button" class="btn-secondary btn-sm" onclick="institutionsPage.geocodeAddress()" title="Определить координаты по адресу">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
@@ -307,8 +307,10 @@ const institutionsPage = {
             // При изменении города или улицы обновляем полный адрес
             const updateAddress = () => {
                 const parts = [];
-                if (cityInput.value.trim()) parts.push(cityInput.value.trim());
-                if (streetInput.value.trim()) parts.push(streetInput.value.trim());
+                const city = cityInput.value.trim();
+                const street = streetInput.value.trim();
+                if (city) parts.push(city);
+                if (street) parts.push(street);
                 addressInput.value = parts.join(', ');
             };
             
@@ -318,12 +320,14 @@ const institutionsPage = {
             // При изменении полного адреса разбираем его на город и улицу
             addressInput.addEventListener('input', () => {
                 const fullAddress = addressInput.value.trim();
-                const parts = fullAddress.split(',').map(s => s.trim());
+                const parts = fullAddress.split(',').map(s => s.trim()).filter(s => s);
                 
                 if (parts.length >= 2) {
+                    // Первая часть - город, остальное - улица и дом
                     cityInput.value = parts[0] || '';
                     streetInput.value = parts.slice(1).join(', ') || '';
                 } else if (parts.length === 1) {
+                    // Если только одна часть, считаем это городом
                     cityInput.value = parts[0] || '';
                     streetInput.value = '';
                 } else {
@@ -537,6 +541,9 @@ const institutionsPage = {
         document.getElementById('institutionId').value = '';
         document.getElementById('city').value = '';
         document.getElementById('street').value = '';
+        document.getElementById('address').value = '';
+        document.getElementById('latitude').value = '';
+        document.getElementById('longitude').value = '';
         document.getElementById('formModal').classList.add('active');
         clearValidationStyles();
     },
@@ -560,21 +567,25 @@ const institutionsPage = {
         document.getElementById('website').value = institution.website || '';
         document.getElementById('description').value = institution.description || '';
         
-        // Разбираем адрес на город и улицу
+        // Заполняем город и улицу из отдельных полей, если они есть
+        const city = institution.city || '';
+        const street = institution.street || '';
         const fullAddress = institution.address || '';
-        const addressParts = fullAddress.split(',').map(s => s.trim());
         
-        if (addressParts.length >= 2) {
-            document.getElementById('city').value = addressParts[0] || '';
-            document.getElementById('street').value = addressParts.slice(1).join(', ') || '';
-        } else if (addressParts.length === 1) {
-            document.getElementById('city').value = addressParts[0] || '';
-            document.getElementById('street').value = '';
-        } else {
-            document.getElementById('city').value = '';
-            document.getElementById('street').value = '';
-        }
+        document.getElementById('city').value = city;
+        document.getElementById('street').value = street;
         document.getElementById('address').value = fullAddress;
+        
+        // Если city/street пустые, но есть address, пробуем разобрать его
+        if (!city && !street && fullAddress) {
+            const addressParts = fullAddress.split(',').map(s => s.trim()).filter(s => s);
+            if (addressParts.length >= 2) {
+                document.getElementById('city').value = addressParts[0] || '';
+                document.getElementById('street').value = addressParts.slice(1).join(', ') || '';
+            } else if (addressParts.length === 1) {
+                document.getElementById('city').value = addressParts[0] || '';
+            }
+        }
         
         document.getElementById('formModal').classList.add('active');
         clearValidationStyles();
@@ -592,25 +603,28 @@ const institutionsPage = {
         const street = document.getElementById('street').value.trim();
         const region = document.getElementById('region').value;
         
-        if (!city && !street) {
-            showNotification('warning', 'Введите город и улицу для определения координат');
+        if (!city) {
+            showNotification('warning', 'Введите город для определения координат');
             return;
         }
         
-        // Формируем полный адрес с регионом
-        const addressParts = [];
-        if (city) addressParts.push(city);
-        if (street) addressParts.push(street);
-        if (region) addressParts.push(region);
-        addressParts.push('Беларусь');
-        
-        const fullAddress = addressParts.join(', ');
+        // Формируем полный адрес: город всегда первый, затем улица, затем страна
+        // Формат: "улица, город, Беларусь" - такой порядок лучше работает с Nominatim
+        let searchQuery;
+        if (street) {
+            // Если есть улица, используем "улица, город, Беларусь"
+            searchQuery = `${street}, ${city}, Беларусь`;
+        } else {
+            // Если только город, используем "город, Беларусь"
+            searchQuery = `${city}, Беларусь`;
+        }
         
         try {
             showNotification('info', 'Определение координат...');
             
-            // Используем Nominatim API для геокодирования
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1`, {
+            // Используем Nominatim API для геокодирования с viewbox для ограничения поиска Беларусью
+            const viewbox = '23.17,51.26,32.77,56.17'; // Границы Беларуси
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1&viewbox=${viewbox}&bounded=0&countrycodes=by`, {
                 headers: {
                     'Accept-Language': 'ru'
                 }
@@ -629,7 +643,7 @@ const institutionsPage = {
                 
                 showNotification('success', `Координаты определены: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
             } else {
-                showNotification('warning', 'Не удалось определить координаты по указанному адресу. Попробуйте уточнить адрес.');
+                showNotification('warning', `Не удалось определить координаты по адресу: "${searchQuery}". Попробуйте уточнить адрес.`);
             }
         } catch (error) {
             console.error('Geocoding error:', error);
