@@ -109,7 +109,8 @@ const institutionsPage = {
                                 <th>Название</th>
                                 <th>Тип</th>
                                 <th>Регион</th>
-                                <th>Адрес</th>
+                                <th>Город</th>
+                                <th>Улица</th>
                                 <th>Телефон</th>
                                 <th>Действия</th>
                             </tr>
@@ -123,7 +124,8 @@ const institutionsPage = {
                                     </td>
                                     <td>${inst.type}</td>
                                     <td>${inst.region || '-'}</td>
-                                    <td>${truncateText(inst.address, 30)}</td>
+                                    <td>${inst.city || '-'}</td>
+                                    <td>${inst.street || '-'}</td>
                                     <td>${inst.phone ? formatPhone(inst.phone) : '-'}</td>
                                     <td>
                                         <div class="table-actions">
@@ -154,7 +156,7 @@ const institutionsPage = {
                                 </tr>
                             `).join('') : `
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">
+                                    <td colspan="7" class="text-center text-muted">
                                         Учреждения не найдены
                                     </td>
                                 </tr>
@@ -220,10 +222,23 @@ const institutionsPage = {
                                 </div>
                             </div>
                             
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="city">Город *</label>
+                                    <input type="text" id="city" required placeholder="Минск">
+                                    <span class="error-message" id="cityError"></span>
+                                </div>
+                                <div class="form-group">
+                                    <label for="street">Улица</label>
+                                    <input type="text" id="street" placeholder="ул. Ленина">
+                                    <span class="error-message" id="streetError"></span>
+                                </div>
+                            </div>
+                            
                             <div class="form-group">
-                                <label for="address">Адрес *</label>
+                                <label for="address">Адрес (полный) *</label>
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="text" id="address" required placeholder="Улица, дом" style="flex: 1;">
+                                    <input type="text" id="address" required placeholder="Город, Улица, Дом" style="flex: 1;">
                                     <button type="button" class="btn-secondary btn-sm" onclick="institutionsPage.geocodeAddress()" title="Определить координаты по адресу">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
@@ -231,6 +246,7 @@ const institutionsPage = {
                                         </svg>
                                     </button>
                                 </div>
+                                <small class="text-muted">Адрес формируется автоматически из города и улицы. Можно отредактировать вручную.</small>
                                 <span class="error-message" id="addressError"></span>
                             </div>
                             
@@ -281,6 +297,41 @@ const institutionsPage = {
         `;
         
         document.getElementById('pageContent').innerHTML = html;
+        
+        // Добавляем обработчики для автоматического формирования адреса
+        const cityInput = document.getElementById('city');
+        const streetInput = document.getElementById('street');
+        const addressInput = document.getElementById('address');
+        
+        if (cityInput && streetInput && addressInput) {
+            // При изменении города или улицы обновляем полный адрес
+            const updateAddress = () => {
+                const parts = [];
+                if (cityInput.value.trim()) parts.push(cityInput.value.trim());
+                if (streetInput.value.trim()) parts.push(streetInput.value.trim());
+                addressInput.value = parts.join(', ');
+            };
+            
+            cityInput.addEventListener('input', updateAddress);
+            streetInput.addEventListener('input', updateAddress);
+            
+            // При изменении полного адреса разбираем его на город и улицу
+            addressInput.addEventListener('input', () => {
+                const fullAddress = addressInput.value.trim();
+                const parts = fullAddress.split(',').map(s => s.trim());
+                
+                if (parts.length >= 2) {
+                    cityInput.value = parts[0] || '';
+                    streetInput.value = parts.slice(1).join(', ') || '';
+                } else if (parts.length === 1) {
+                    cityInput.value = parts[0] || '';
+                    streetInput.value = '';
+                } else {
+                    cityInput.value = '';
+                    streetInput.value = '';
+                }
+            });
+        }
         
         // Применяем режим вида
         const tableCard = document.querySelector('#pageContent > .card');
@@ -484,6 +535,8 @@ const institutionsPage = {
         document.getElementById('formModalTitle').textContent = 'Добавить учреждение';
         document.getElementById('institutionForm').reset();
         document.getElementById('institutionId').value = '';
+        document.getElementById('city').value = '';
+        document.getElementById('street').value = '';
         document.getElementById('formModal').classList.add('active');
         clearValidationStyles();
     },
@@ -500,13 +553,28 @@ const institutionsPage = {
         document.getElementById('name').value = institution.name || '';
         document.getElementById('type').value = institution.type || '';
         document.getElementById('region').value = institution.region || '';
-        document.getElementById('address').value = institution.address || '';
         document.getElementById('latitude').value = institution.latitude || '';
         document.getElementById('longitude').value = institution.longitude || '';
         document.getElementById('phone').value = institution.phone || '';
         document.getElementById('email').value = institution.email || '';
         document.getElementById('website').value = institution.website || '';
         document.getElementById('description').value = institution.description || '';
+        
+        // Разбираем адрес на город и улицу
+        const fullAddress = institution.address || '';
+        const addressParts = fullAddress.split(',').map(s => s.trim());
+        
+        if (addressParts.length >= 2) {
+            document.getElementById('city').value = addressParts[0] || '';
+            document.getElementById('street').value = addressParts.slice(1).join(', ') || '';
+        } else if (addressParts.length === 1) {
+            document.getElementById('city').value = addressParts[0] || '';
+            document.getElementById('street').value = '';
+        } else {
+            document.getElementById('city').value = '';
+            document.getElementById('street').value = '';
+        }
+        document.getElementById('address').value = fullAddress;
         
         document.getElementById('formModal').classList.add('active');
         clearValidationStyles();
@@ -520,16 +588,23 @@ const institutionsPage = {
     
     // Геокодирование адреса (определение координат по адресу)
     geocodeAddress: async function() {
-        const address = document.getElementById('address').value.trim();
+        const city = document.getElementById('city').value.trim();
+        const street = document.getElementById('street').value.trim();
         const region = document.getElementById('region').value;
         
-        if (!address) {
-            showNotification('warning', 'Введите адрес для определения координат');
+        if (!city && !street) {
+            showNotification('warning', 'Введите город и улицу для определения координат');
             return;
         }
         
         // Формируем полный адрес с регионом
-        const fullAddress = region ? `${address}, ${region}, Беларусь` : `${address}, Беларусь`;
+        const addressParts = [];
+        if (city) addressParts.push(city);
+        if (street) addressParts.push(street);
+        if (region) addressParts.push(region);
+        addressParts.push('Беларусь');
+        
+        const fullAddress = addressParts.join(', ');
         
         try {
             showNotification('info', 'Определение координат...');
@@ -597,11 +672,15 @@ const institutionsPage = {
         
         const latValue = document.getElementById('latitude').value.trim();
         const lngValue = document.getElementById('longitude').value.trim();
+        const cityValue = document.getElementById('city').value.trim();
+        const streetValue = document.getElementById('street').value.trim();
         
         const formData = {
             name: document.getElementById('name').value.trim(),
             type: document.getElementById('type').value,
             region: document.getElementById('region').value,
+            city: cityValue || null,
+            street: streetValue || null,
             address: document.getElementById('address').value.trim(),
             latitude: latValue ? parseFloat(latValue) : null,
             longitude: lngValue ? parseFloat(lngValue) : null,
@@ -676,7 +755,15 @@ const institutionsPage = {
                         <span>${escapeHtml(institution.region || '-')}</span>
                     </div>
                     <div class="detail-item">
-                        <label>Адрес</label>
+                        <label>Город</label>
+                        <span>${escapeHtml(institution.city || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Улица</label>
+                        <span>${escapeHtml(institution.street || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Полный адрес</label>
                         <span>${escapeHtml(institution.address || '-')}</span>
                     </div>
                     <div class="detail-item">

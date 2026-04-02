@@ -134,7 +134,12 @@ function validateInstitutionForm(data) {
         errors.region = 'Выберите регион';
     }
     
-    // Адрес
+    // Город
+    if (!data.city || !data.city.trim()) {
+        errors.city = 'Введите город';
+    }
+    
+    // Адрес (полный)
     const addressResult = validateAddress(data.address);
     if (!addressResult.valid) {
         errors.address = addressResult.message;

@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS institutions (
     name TEXT NOT NULL,
     type TEXT,
     region TEXT,
+    city TEXT,
+    street TEXT,
     address TEXT,
     latitude DECIMAL(10, 7),
     longitude DECIMAL(10, 7),
