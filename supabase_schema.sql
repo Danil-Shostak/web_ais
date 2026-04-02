@@ -95,6 +95,18 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Таблица активных сессий
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES profiles(user_id) ON DELETE CASCADE,
+    session_token TEXT,
+    device_info TEXT,
+    ip_address TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    last_active TIMESTAMPTZ DEFAULT NOW(),
+    is_active BOOLEAN DEFAULT TRUE
+);
+
 -- ========================================
 -- Политики безопасности (Row Level Security)
 -- ========================================
@@ -176,3 +188,7 @@ CREATE INDEX IF NOT EXISTS idx_statistics_date ON statistics(date);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_logs_user ON logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_user ON reports(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(user_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_active ON user_sessions(user_id, is_active);

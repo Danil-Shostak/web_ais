@@ -584,9 +584,6 @@ const api = {
     // Получение всех пользователей (для админа)
     async getUsers() {
         try {
-            // Получаем текущую сессию для извлечения email
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
@@ -594,10 +591,10 @@ const api = {
             
             if (error) throw error;
             
-            // Добавляем email из auth для каждого профиля
+            // Добавляем email из профиля (теперь хранится в profiles)
             const users = (data || []).map(profile => ({
                 ...profile,
-                email: authUser?.email || '—',
+                email: profile.email || '—',
                 id: profile.user_id || profile.id
             }));
             
@@ -605,6 +602,294 @@ const api = {
         } catch (error) {
             console.error('Error fetching users:', error);
             throw error;
+        }
+    },
+    
+    // Обновление роли пользователя
+    async updateUserRole(userId, role) {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .update({ role })
+                .eq('user_id', userId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error updating user role:', error);
+            throw error;
+        }
+    },
+    
+    // ==================== Сессии ====================
+    
+    // Регистрация сессии при входе
+    async registerSession(userId, sessionData = {}) {
+        try {
+            const { data, error } = await supabase
+                .from('user_sessions')
+                .insert([{
+                    user_id: userId,
+                    session_token: sessionData.token || null,
+                    device_info: sessionData.device || navigator.userAgent?.substring(0, 200) || null,
+                    ip_address: sessionData.ip || null,
+                    is_active: true
+                }])
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error registering session:', error);
+            // Не блокируем вход при ошибке регистрации сессии
+            return null;
+        }
+    },
+    
+    // Получение активных сессий пользователя
+    async getUserSessions(userId) {
+        try {
+            const { data, error } = await supabase
+                .from('user_sessions')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('is_active', true)
+                .order('last_active', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching user sessions:', error);
+            return [];
+        }
+    },
+    
+    // Завершение сессии (для админа - любой, для пользователя - своей)
+    async terminateSession(sessionId) {
+        try {
+            const { error } = await supabase
+                .from('user_sessions')
+                .update({ is_active: false })
+                .eq('id', sessionId);
+            
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('Error terminating session:', error);
+            throw error;
+        }
+    },
+    
+    // Завершение всех сессий пользователя
+    async terminateAllUserSessions(userId) {
+        try {
+            const { error } = await supabase
+                .from('user_sessions')
+                .update({ is_active: false })
+                .eq('user_id', userId)
+                .eq('is_active', true);
+            
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('Error terminating all sessions:', error);
+            throw error;
+        }
+    },
+    
+    // Получение всех активных сессий (для админа)
+    async getAllActiveSessions() {
+        try {
+            const { data, error } = await supabase
+                .from('user_sessions')
+                .select('*')
+                .eq('is_active', true)
+                .order('last_active', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching all sessions:', error);
+            return [];
+        }
+    },
+    
+    // Обновление email профиля
+    async updateUserEmail(userId, email) {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .update({ email })
+                .eq('user_id', userId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error updating user email:', error);
+            throw error;
+        }
+    },
+    
+    // Обновление last_login профиля
+    async updateUserLastLogin(userId) {
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ last_login: new Date().toISOString() })
+                .eq('user_id', userId);
+            
+            if (error) console.error('Error updating last_login:', error);
+        } catch (error) {
+            console.error('Error updating last_login:', error);
+        }
+    },
+    
+    // Обновление роли пользователя
+    async updateUserRole(userId, role) {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .update({ role })
+                .eq('user_id', userId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error updating user role:', error);
+            throw error;
+        }
+    },
+    
+    // ==================== Сессии ====================
+    
+    // Регистрация сессии при входе
+    async registerSession(userId, sessionData = {}) {
+        try {
+            const { data, error } = await supabase
+                .from('user_sessions')
+                .insert([{
+                    user_id: userId,
+                    session_token: sessionData.token || null,
+                    device_info: sessionData.device || navigator.userAgent?.substring(0, 200) || null,
+                    ip_address: sessionData.ip || null,
+                    is_active: true
+                }])
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error registering session:', error);
+            // Не блокируем вход при ошибке регистрации сессии
+            return null;
+        }
+    },
+    
+    // Получение активных сессий пользователя
+    async getUserSessions(userId) {
+        try {
+            const { data, error } = await supabase
+                .from('user_sessions')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('is_active', true)
+                .order('last_active', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching user sessions:', error);
+            return [];
+        }
+    },
+    
+    // Завершение сессии (для админа - любой, для пользователя - своей)
+    async terminateSession(sessionId) {
+        try {
+            const { error } = await supabase
+                .from('user_sessions')
+                .update({ is_active: false })
+                .eq('id', sessionId);
+            
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('Error terminating session:', error);
+            throw error;
+        }
+    },
+    
+    // Завершение всех сессий пользователя
+    async terminateAllUserSessions(userId) {
+        try {
+            const { error } = await supabase
+                .from('user_sessions')
+                .update({ is_active: false })
+                .eq('user_id', userId)
+                .eq('is_active', true);
+            
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('Error terminating all sessions:', error);
+            throw error;
+        }
+    },
+    
+    // Получение всех активных сессий (для админа)
+    async getAllActiveSessions() {
+        try {
+            const { data, error } = await supabase
+                .from('user_sessions')
+                .select('*')
+                .eq('is_active', true)
+                .order('last_active', { ascending: false });
+            
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            console.error('Error fetching all sessions:', error);
+            return [];
+        }
+    },
+    
+    // Обновление email профиля
+    async updateUserEmail(userId, email) {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .update({ email })
+                .eq('user_id', userId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error updating user email:', error);
+            throw error;
+        }
+    },
+    
+    // Обновление last_login профиля
+    async updateUserLastLogin(userId) {
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ last_login: new Date().toISOString() })
+                .eq('user_id', userId);
+            
+            if (error) console.error('Error updating last_login:', error);
+        } catch (error) {
+            console.error('Error updating last_login:', error);
         }
     },
     

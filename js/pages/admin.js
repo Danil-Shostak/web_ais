@@ -5,6 +5,7 @@
 const adminPage = {
     users: [],
     logs: [],
+    sessions: [],
     blockedUsers: JSON.parse(localStorage.getItem('blockedUsers') || '[]'),
     
     // Загрузка страницы
@@ -20,12 +21,14 @@ const adminPage = {
         }
         
         try {
-            const [users, logs] = await Promise.all([
+            const [users, logs, sessions] = await Promise.all([
                 api.getUsers(),
-                api.getLogs({ limit: 100 })
+                api.getLogs({ limit: 100 }),
+                api.getAllActiveSessions()
             ]);
             this.users = users;
             this.logs = logs;
+            this.sessions = sessions;
             this.render();
         } catch (error) {
             console.error('Error loading admin:', error);
@@ -152,7 +155,7 @@ const adminPage = {
             <!-- Управление сессиями -->
             <div class="card mt-3">
                 <div class="card-header">
-                    <h3>Управление сессиями пользователей</h3>
+                    <h3>Управление пользователями и сессиями</h3>
                     <button class="btn-secondary btn-sm" onclick="adminPage.refreshSessions()">
                         Обновить
                     </button>
@@ -164,15 +167,18 @@ const adminPage = {
                                 <th>Пользователь</th>
                                 <th>Email</th>
                                 <th>Роль</th>
+                                <th>Активных сессий</th>
+                                <th>Последний вход</th>
                                 <th>Статус</th>
-                                <th>Последняя активность</th>
                                 <th>Действия</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${this.users.length > 0 ? this.users.map(user => {
                                 const isBlocked = this.blockedUsers.includes(user.id);
-                                const lastActivity = this.getUserLastActivity(user.id);
+                                const userSessions = this.sessions.filter(s => s.user_id === user.id);
+                                const sessionCount = userSessions.length;
+                                const lastLogin = user.last_login ? formatDate(user.last_login, 'datetime') : 'Нет данных';
                                 const isCurrentUser = currentUser && user.id === currentUser.id;
                                 return `
                                     <tr style="${isBlocked ? 'opacity:0.6;background:#fef2f2;' : ''}">
@@ -183,11 +189,16 @@ const adminPage = {
                                         <td>${escapeHtml(user.email || '—')}</td>
                                         <td>${CONFIG.userRoles[user.role] || user.role || 'Пользователь'}</td>
                                         <td>
+                                            <span style="color:${sessionCount > 0 ? '#10b981' : '#6b7280'};font-weight:500;">
+                                                ${sessionCount > 0 ? sessionCount + ' активн.' : 'Нет сессий'}
+                                            </span>
+                                        </td>
+                                        <td style="font-size:12px;color:var(--text-secondary);">${lastLogin}</td>
+                                        <td>
                                             ${isBlocked
                                                 ? '<span style="color:#ef4444;font-weight:500;">🚫 Заблокирован</span>'
                                                 : '<span style="color:#10b981;font-weight:500;">✓ Активен</span>'}
                                         </td>
-                                        <td style="font-size:12px;color:var(--text-secondary);">${lastActivity}</td>
                                         <td>
                                             <div class="table-actions">
                                                 ${!isCurrentUser ? `
@@ -195,9 +206,17 @@ const adminPage = {
                                                         ? `<button class="btn-secondary btn-sm" onclick="adminPage.unblockUser('${user.id}')">Разблокировать</button>`
                                                         : `<button class="btn-secondary btn-sm" style="color:#ef4444;" onclick="adminPage.blockUser('${user.id}')">Заблокировать</button>`
                                                     }
-                                                    <button class="btn-secondary btn-sm" onclick="adminPage.terminateSession('${user.id}')" title="Завершить сессию">
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                                                        Завершить сессию
+                                                    ${sessionCount > 0 ? `
+                                                        <button class="btn-secondary btn-sm" onclick="adminPage.terminateAllUserSessions('${user.id}')" title="Завершить все сессии">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                                            Завершить сессии
+                                                        </button>
+                                                    ` : ''}
+                                                    <button class="btn-icon" onclick="adminPage.editUserRole('${user.id}')" title="Изменить роль">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <circle cx="12" cy="12" r="3"></circle>
+                                                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                                        </svg>
                                                     </button>
                                                 ` : '<span class="text-muted" style="font-size:12px;">Текущий сеанс</span>'}
                                             </div>
@@ -205,7 +224,77 @@ const adminPage = {
                                     </tr>
                                 `;
                             }).join('') : `
-                                <tr><td colspan="6" class="text-center text-muted">Нет пользователей</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted">Нет пользователей</td></tr>
+                            `}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Пользователь</th>
+                                <th>Email</th>
+                                <th>Роль</th>
+                                <th>Активных сессий</th>
+                                <th>Последний вход</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${this.users.length > 0 ? this.users.map(user => {
+                                const isBlocked = this.blockedUsers.includes(user.id);
+                                const userSessions = this.sessions.filter(s => s.user_id === user.id);
+                                const sessionCount = userSessions.length;
+                                const lastLogin = user.last_login ? formatDate(user.last_login, 'datetime') : 'Нет данных';
+                                const isCurrentUser = currentUser && user.id === currentUser.id;
+                                return `
+                                    <tr style="${isBlocked ? 'opacity:0.6;background:#fef2f2;' : ''}">
+                                        <td>
+                                            <strong>${escapeHtml(user.full_name || '—')}</strong>
+                                            ${isCurrentUser ? '<span class="badge" style="background:#10b981;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">Вы</span>' : ''}
+                                        </td>
+                                        <td>${escapeHtml(user.email || '—')}</td>
+                                        <td>${CONFIG.userRoles[user.role] || user.role || 'Пользователь'}</td>
+                                        <td>
+                                            <span style="color:${sessionCount > 0 ? '#10b981' : '#6b7280'};font-weight:500;">
+                                                ${sessionCount > 0 ? sessionCount + ' активн.' : 'Нет сессий'}
+                                            </span>
+                                        </td>
+                                        <td style="font-size:12px;color:var(--text-secondary);">${lastLogin}</td>
+                                        <td>
+                                            ${isBlocked
+                                                ? '<span style="color:#ef4444;font-weight:500;">🚫 Заблокирован</span>'
+                                                : '<span style="color:#10b981;font-weight:500;">✓ Активен</span>'}
+                                        </td>
+                                        <td>
+                                            <div class="table-actions">
+                                                ${!isCurrentUser ? `
+                                                    ${isBlocked
+                                                        ? `<button class="btn-secondary btn-sm" onclick="adminPage.unblockUser('${user.id}')">Разблокировать</button>`
+                                                        : `<button class="btn-secondary btn-sm" style="color:#ef4444;" onclick="adminPage.blockUser('${user.id}')">Заблокировать</button>`
+                                                    }
+                                                    ${sessionCount > 0 ? `
+                                                        <button class="btn-secondary btn-sm" onclick="adminPage.terminateAllUserSessions('${user.id}')" title="Завершить все сессии">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                                            Завершить сессии
+                                                        </button>
+                                                    ` : ''}
+                                                    <button class="btn-icon" onclick="adminPage.editUserRole('${user.id}')" title="Изменить роль">
+                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <circle cx="12" cy="12" r="3"></circle>
+                                                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                                        </svg>
+                                                    </button>
+                                                ` : '<span class="text-muted" style="font-size:12px;">Текущий сеанс</span>'}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('') : `
+                                <tr><td colspan="7" class="text-center text-muted">Нет пользователей</td></tr>
                             `}
                         </tbody>
                     </table>
@@ -282,8 +371,7 @@ const adminPage = {
         const role = document.getElementById('userRole').value;
         
         try {
-            // В реальном приложении здесь будет API вызов
-            // await api.updateUserRole(userId, role);
+            await api.updateUserRole(userId, role);
             
             showNotification('success', 'Роль пользователя обновлена');
             closeModal();
@@ -295,15 +383,8 @@ const adminPage = {
         }
     },
     
-    // Получить последнюю активность пользователя из логов
-    getUserLastActivity: function(userId) {
-        const userLog = this.logs.find(l => l.user_id === userId);
-        if (!userLog) return 'Нет данных';
-        return formatDate(userLog.created_at, 'datetime');
-    },
-    
     // Заблокировать пользователя
-    blockUser: function(userId) {
+    blockUser: async function(userId) {
         const user = this.users.find(u => u.id === userId);
         if (!user) return;
         if (!confirm(`Заблокировать пользователя "${user.email}"?\nВсе активные сессии будут завершены.`)) return;
@@ -313,60 +394,105 @@ const adminPage = {
             localStorage.setItem('blockedUsers', JSON.stringify(this.blockedUsers));
         }
         
-        api.createLog({
+        // Завершаем все сессии
+        try {
+            await api.terminateAllUserSessions(userId);
+            await supabase.from('profiles').update({
+                session_invalidated_at: new Date().toISOString()
+            }).eq('user_id', userId);
+        } catch (e) {
+            console.error('Error terminating sessions on block:', e);
+        }
+        
+        await api.createLog({
             user_id: currentUser.id,
             action: 'block_user',
             details: `Заблокирован пользователь: ${user.email}`
-        }).catch(() => {});
+        });
         
         showNotification('success', `Пользователь ${user.email} заблокирован`);
         this.render();
     },
     
     // Разблокировать пользователя
-    unblockUser: function(userId) {
+    unblockUser: async function(userId) {
         const user = this.users.find(u => u.id === userId);
         if (!user) return;
         
         this.blockedUsers = this.blockedUsers.filter(id => id !== userId);
         localStorage.setItem('blockedUsers', JSON.stringify(this.blockedUsers));
         
-        api.createLog({
+        await api.createLog({
             user_id: currentUser.id,
             action: 'unblock_user',
             details: `Разблокирован пользователь: ${user.email}`
-        }).catch(() => {});
+        });
         
         showNotification('success', `Пользователь ${user.email} разблокирован`);
         this.render();
     },
     
-    // Завершить сессию пользователя
-    terminateSession: function(userId) {
+    // Разблокировать пользователя
+    unblockUser: async function(userId) {
         const user = this.users.find(u => u.id === userId);
         if (!user) return;
-        if (!confirm(`Завершить сессию пользователя "${user.email}"?`)) return;
         
-        api.createLog({
+        this.blockedUsers = this.blockedUsers.filter(id => id !== userId);
+        localStorage.setItem('blockedUsers', JSON.stringify(this.blockedUsers));
+        
+        await api.createLog({
             user_id: currentUser.id,
-            action: 'terminate_session',
-            details: `Принудительно завершена сессия: ${user.email}`
-        }).catch(() => {});
+            action: 'unblock_user',
+            details: `Разблокирован пользователь: ${user.email}`
+        });
         
-        showNotification('success', `Сессия пользователя ${user.email} завершена`);
+        showNotification('success', `Пользователь ${user.email} разблокирован`);
+        this.render();
+    },
+    
+    // Завершить все сессии пользователя
+    terminateAllUserSessions: async function(userId) {
+        const user = this.users.find(u => u.id === userId);
+        if (!user) return;
+        if (!confirm(`Завершить все активные сессии пользователя "${user.email}"?\nПользователь будет вынужден заново войти в систему.`)) return;
+        
+        try {
+            // Завершаем все сессии в БД
+            await api.terminateAllUserSessions(userId);
+            
+            // Устанавливаем флаг инвалидации сессии в профиле
+            await supabase.from('profiles').update({
+                session_invalidated_at: new Date().toISOString()
+            }).eq('user_id', userId);
+            
+            // Логируем действие
+            await api.createLog({
+                user_id: currentUser.id,
+                action: 'terminate_sessions',
+                details: `Принудительно завершены все сессии: ${user.email}`
+            });
+            
+            showNotification('success', `Все сессии пользователя ${user.email} завершены`);
+            await this.load();
+        } catch (error) {
+            console.error('Error terminating sessions:', error);
+            showNotification('error', 'Ошибка завершения сессий');
+        }
     },
     
     // Обновить данные сессий
     refreshSessions: async function() {
         try {
-            const [users, logs] = await Promise.all([
+            const [users, logs, sessions] = await Promise.all([
                 api.getUsers(),
-                api.getLogs({ limit: 100 })
+                api.getLogs({ limit: 100 }),
+                api.getAllActiveSessions()
             ]);
             this.users = users;
             this.logs = logs;
+            this.sessions = sessions;
             this.render();
-            showNotification('info', 'Список сессий обновлён');
+            showNotification('info', 'Данные обновлены');
         } catch (error) {
             showNotification('error', 'Ошибка обновления данных');
         }

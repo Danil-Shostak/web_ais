@@ -43,8 +43,20 @@ async function initAuth() {
                 showLogin();
                 return;
             }
-            // Загрузка профиля пользователя из Supabase
+            // Проверка: не была ли сессия завершена администратором
             const profile = await api.getProfile(user.id);
+            if (profile && profile.session_invalidated_at) {
+                const invalidatedAt = new Date(profile.session_invalidated_at);
+                const sessionStoredAt = currentUser.session_created_at ? new Date(currentUser.session_created_at) : new Date(0);
+                if (invalidatedAt > sessionStoredAt) {
+                    localStorage.removeItem('current_user');
+                    localStorage.removeItem('authToken');
+                    await supabase.auth.signOut();
+                    showLogin();
+                    return;
+                }
+            }
+            // Загрузка профиля пользователя из Supabase
             if (profile) {
                 currentUser.profile = profile;
             }
@@ -155,14 +167,36 @@ async function handleLogin(event) {
         }
         
         // Загрузка профиля из profiles таблицы
-        const profile = await api.getProfile(user.id);
+        let profile = await api.getProfile(user.id);
+        
+        // Если профиля нет или email не сохранён, обновляем
+        if (!profile) {
+            profile = await api.createProfile({
+                user_id: user.id,
+                full_name: user.email.split('@')[0],
+                role: 'user',
+                email: user.email
+            });
+        } else if (!profile.email || profile.email !== user.email) {
+            await api.updateUserEmail(user.id, user.email);
+            profile.email = user.email;
+        }
+        
+        // Обновляем last_login
+        await api.updateUserLastLogin(user.id);
+        
+        // Регистрируем сессию
+        await api.registerSession(user.id, {
+            token: session.access_token?.substring(0, 50)
+        });
         
         currentUser = {
             id: user.id,
             email: user.email,
             full_name: profile?.full_name || user.email.split('@')[0],
             role: profile?.role || 'user',
-            profile: profile
+            profile: profile,
+            session_created_at: new Date().toISOString()
         };
         
         // Обновляем window.currentUser для доступа из других модулей
@@ -263,7 +297,14 @@ async function handleRegister(event) {
             await api.createProfile({
                 user_id: data.user.id,
                 full_name: name,
-                role: 'user'
+                role: 'user',
+                email: data.user.email
+            });
+            
+            await api.updateUserLastLogin(data.user.id);
+            
+            await api.registerSession(data.user.id, {
+                token: data.session?.access_token?.substring(0, 50)
             });
         }
         
@@ -276,7 +317,8 @@ async function handleRegister(event) {
                 id: data.user.id,
                 email: data.user.email,
                 full_name: name,
-                role: 'user'
+                role: 'user',
+                session_created_at: new Date().toISOString()
             };
             
             localStorage.setItem('authToken', data.session.access_token);
