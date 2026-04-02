@@ -420,47 +420,13 @@ function showSearchResults(query, results) {
     `;
 }
 
-// Уведомления
-async function showNotifications() {
-    if (!currentUser) return;
-    
-    try {
-        const notifications = await api.getNotifications(currentUser.id);
-        
-        const content = notifications.length > 0 ? `
-            <ul class="activity-list">
-                ${notifications.map(n => `
-                    <li>
-                        <div class="activity-icon">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                            </svg>
-                        </div>
-                        <div class="activity-info">
-                            <p>${n.message}</p>
-                            <span>${formatDate(n.created_at, 'datetime')}</span>
-                        </div>
-                    </li>
-                `).join('')}
-            </ul>
-        ` : '<p class="text-center text-muted">Уведомлений нет</p>';
-        
-        showModal('Уведомления', content, [
-            { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-secondary' }
-        ]);
-        
-        // Обновить счетчик уведомлений
-        updateNotificationBadge(0);
-        
-    } catch (error) {
-        console.error('Error fetching notifications:', error);
-    }
-}
-
 // Обновление бейджа уведомлений
 function updateNotificationBadge(count) {
-    document.getElementById('notificationBadge').textContent = count;
+    const badge = document.getElementById('notificationBadge');
+    if (badge) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+    }
 }
 
 // Экспорт в CSV

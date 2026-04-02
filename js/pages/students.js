@@ -86,7 +86,7 @@ const studentsPage = {
                                 <th>ФИО</th>
                                 <th>Дата рождения</th>
                                 <th>Учреждение</th>
-                                <th>Класс</th>
+                                <th>Класс/Курс</th>
                                 <th>Адрес</th>
                                 <th>Действия</th>
                             </tr>
@@ -94,6 +94,14 @@ const studentsPage = {
                         <tbody>
                             ${pageData.length > 0 ? pageData.map(student => {
                                 const institution = this.institutions.find(i => i.id === student.institution_id);
+                                // Форматируем отображение класса/курса
+                                let gradeDisplay;
+                                if (typeof student.grade === 'string' && student.grade.includes('курс')) {
+                                    gradeDisplay = student.grade;
+                                } else {
+                                    const gradeNum = parseInt(student.grade);
+                                    gradeDisplay = gradeNum ? `${gradeNum} класс` : student.grade;
+                                }
                                 return `
                                     <tr>
                                         <td>
@@ -101,7 +109,7 @@ const studentsPage = {
                                         </td>
                                         <td>${formatDate(student.birth_date)}</td>
                                         <td>${institution ? truncateText(institution.name, 25) : '-'}</td>
-                                        <td>${student.grade}</td>
+                                        <td>${gradeDisplay}</td>
                                         <td>${truncateText(student.address, 25) || '-'}</td>
                                         <td>
                                             <div class="table-actions">
@@ -182,14 +190,14 @@ const studentsPage = {
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="institution_id">Учреждение *</label>
-                                    <select id="institution_id" required>
+                                    <select id="institution_id" required onchange="studentsPage.updateGradeField()">
                                         <option value="">Выберите учреждение</option>
-                                        ${this.institutions.map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
+                                        ${this.institutions.map(i => `<option value="${i.id}" data-type="${i.type || ''}">${i.name}</option>`).join('')}
                                     </select>
                                     <span class="error-message" id="institution_idError"></span>
                                 </div>
                                 <div class="form-group">
-                                    <label for="grade">Класс *</label>
+                                    <label id="gradeLabel" for="grade">Класс/Курс *</label>
                                     <select id="grade" required>
                                         <option value="">Выберите класс</option>
                                         ${[1,2,3,4,5,6,7,8,9,10,11].map(g => `<option value="${g}">${g} класс</option>`).join('')}
@@ -285,9 +293,14 @@ const studentsPage = {
         document.getElementById('birth_date').value = student.birth_date || '';
         document.getElementById('gender').value = student.gender || '';
         document.getElementById('institution_id').value = student.institution_id || '';
-        document.getElementById('grade').value = student.grade || '';
         document.getElementById('address').value = student.address || '';
         document.getElementById('parent_phone').value = student.parent_phone || '';
+        
+        // Сначала обновляем поле класса/курса на основе учреждения
+        this.updateGradeField();
+        
+        // Затем устанавливаем значение
+        document.getElementById('grade').value = student.grade || '';
         
         document.getElementById('formModal').classList.add('active');
         clearValidationStyles();
@@ -297,6 +310,40 @@ const studentsPage = {
     closeForm: function() {
         document.getElementById('formModal').classList.remove('active');
         this.editingId = null;
+    },
+    
+    // Обновление поля класса/курса при выборе учреждения
+    updateGradeField: function() {
+        const institutionSelect = document.getElementById('institution_id');
+        const selectedOption = institutionSelect.options[institutionSelect.selectedIndex];
+        const institutionType = selectedOption.getAttribute('data-type') || '';
+        
+        const gradeSelect = document.getElementById('grade');
+        const gradeLabel = document.getElementById('gradeLabel');
+        
+        // Типы учреждений, где используются курсы вместо классов
+        const courseTypes = ['Среднее специальное', 'Профессионально-техническое', 'Высшее'];
+        const isCourseInstitution = courseTypes.includes(institutionType);
+        
+        if (isCourseInstitution) {
+            // Показываем курсы
+            gradeLabel.textContent = 'Курс *';
+            gradeSelect.innerHTML = `
+                <option value="">Выберите курс</option>
+                <option value="1 курс">1 курс</option>
+                <option value="2 курс">2 курс</option>
+                <option value="3 курс">3 курс</option>
+                <option value="4 курс">4 курс</option>
+                <option value="5 курс">5 курс</option>
+            `;
+        } else {
+            // Показываем классы
+            gradeLabel.textContent = 'Класс *';
+            gradeSelect.innerHTML = `
+                <option value="">Выберите класс</option>
+                ${[1,2,3,4,5,6,7,8,9,10,11].map(g => `<option value="${g}">${g} класс</option>`).join('')}
+            `;
+        }
     },
     
     // Удаление
@@ -329,12 +376,16 @@ const studentsPage = {
     submitForm: async function(event) {
         event.preventDefault();
         
+        const gradeValue = document.getElementById('grade').value;
+        // Для курсов значение уже содержит "курс", для классов - число
+        const grade = gradeValue.includes('курс') ? gradeValue : parseInt(gradeValue);
+        
         const formData = {
             full_name: document.getElementById('full_name').value.trim(),
             birth_date: document.getElementById('birth_date').value,
             gender: document.getElementById('gender').value,
             institution_id: document.getElementById('institution_id').value,
-            grade: parseInt(document.getElementById('grade').value),
+            grade: grade,
             address: document.getElementById('address').value.trim() || null,
             parent_phone: document.getElementById('parent_phone').value.trim() || null
         };

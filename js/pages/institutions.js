@@ -222,8 +222,29 @@ const institutionsPage = {
                             
                             <div class="form-group">
                                 <label for="address">Адрес *</label>
-                                <input type="text" id="address" required placeholder="Улица, дом">
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="address" required placeholder="Улица, дом" style="flex: 1;">
+                                    <button type="button" class="btn-secondary btn-sm" onclick="institutionsPage.geocodeAddress()" title="Определить координаты по адресу">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                            <circle cx="12" cy="10" r="3"></circle>
+                                        </svg>
+                                    </button>
+                                </div>
                                 <span class="error-message" id="addressError"></span>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="latitude">Широта (координаты)</label>
+                                    <input type="number" id="latitude" step="0.000001" placeholder="53.9045">
+                                    <small class="text-muted">Найдите координаты на <a href="https://www.openstreetmap.org/" target="_blank">карте</a></small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="longitude">Долгота (координаты)</label>
+                                    <input type="number" id="longitude" step="0.000001" placeholder="27.5615">
+                                    <small class="text-muted">Найдите координаты на <a href="https://www.openstreetmap.org/" target="_blank">карте</a></small>
+                                </div>
                             </div>
                             
                             <div class="form-row">
@@ -346,25 +367,34 @@ const institutionsPage = {
         
         filteredData.forEach(inst => {
             const key = inst.region || 'default';
-            regionCounters[key] = (regionCounters[key] || 0) + 1;
-            const n = regionCounters[key];
             
             let lat, lng;
-            const bounds = regionBounds[key];
-            if (bounds) {
-                // Равномерное распределение маркеров внутри границ региона
-                const latRange = bounds[1] - bounds[0];
-                const lngRange = bounds[3] - bounds[2];
-                const cols = Math.ceil(Math.sqrt(n));
-                const rows = Math.ceil(n / cols);
-                const col = (n - 1) % cols;
-                const row = Math.floor((n - 1) / cols);
-                lat = bounds[0] + (latRange / (rows + 1)) * (row + 1);
-                lng = bounds[2] + (lngRange / (cols + 1)) * (col + 1);
+            
+            // Сначала проверяем наличие реальных координат в базе данных
+            if (inst.latitude && inst.longitude) {
+                lat = parseFloat(inst.latitude);
+                lng = parseFloat(inst.longitude);
             } else {
-                const baseCoords = regionCoords[key] || [53.9, 27.5];
-                lat = baseCoords[0];
-                lng = baseCoords[1];
+                // Если координат нет, используем координаты региона с распределением
+                regionCounters[key] = (regionCounters[key] || 0) + 1;
+                const n = regionCounters[key];
+                const bounds = regionBounds[key];
+                
+                if (bounds) {
+                    // Равномерное распределение маркеров внутри границ региона
+                    const latRange = bounds[1] - bounds[0];
+                    const lngRange = bounds[3] - bounds[2];
+                    const cols = Math.ceil(Math.sqrt(n));
+                    const rows = Math.ceil(n / cols);
+                    const col = (n - 1) % cols;
+                    const row = Math.floor((n - 1) / cols);
+                    lat = bounds[0] + (latRange / (rows + 1)) * (row + 1);
+                    lng = bounds[2] + (lngRange / (cols + 1)) * (col + 1);
+                } else {
+                    const baseCoords = regionCoords[key] || [53.9, 27.5];
+                    lat = baseCoords[0];
+                    lng = baseCoords[1];
+                }
             }
             
             const color = typeColors[inst.type] || '#64748b';
@@ -471,6 +501,8 @@ const institutionsPage = {
         document.getElementById('type').value = institution.type || '';
         document.getElementById('region').value = institution.region || '';
         document.getElementById('address').value = institution.address || '';
+        document.getElementById('latitude').value = institution.latitude || '';
+        document.getElementById('longitude').value = institution.longitude || '';
         document.getElementById('phone').value = institution.phone || '';
         document.getElementById('email').value = institution.email || '';
         document.getElementById('website').value = institution.website || '';
@@ -484,6 +516,50 @@ const institutionsPage = {
     closeForm: function() {
         document.getElementById('formModal').classList.remove('active');
         this.editingId = null;
+    },
+    
+    // Геокодирование адреса (определение координат по адресу)
+    geocodeAddress: async function() {
+        const address = document.getElementById('address').value.trim();
+        const region = document.getElementById('region').value;
+        
+        if (!address) {
+            showNotification('warning', 'Введите адрес для определения координат');
+            return;
+        }
+        
+        // Формируем полный адрес с регионом
+        const fullAddress = region ? `${address}, ${region}, Беларусь` : `${address}, Беларусь`;
+        
+        try {
+            showNotification('info', 'Определение координат...');
+            
+            // Используем Nominatim API для геокодирования
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1`, {
+                headers: {
+                    'Accept-Language': 'ru'
+                }
+            });
+            
+            if (!response.ok) throw new Error('Ошибка геокодирования');
+            
+            const data = await response.json();
+            
+            if (data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lon = parseFloat(data[0].lon);
+                
+                document.getElementById('latitude').value = lat.toFixed(6);
+                document.getElementById('longitude').value = lon.toFixed(6);
+                
+                showNotification('success', `Координаты определены: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+            } else {
+                showNotification('warning', 'Не удалось определить координаты по указанному адресу. Попробуйте уточнить адрес.');
+            }
+        } catch (error) {
+            console.error('Geocoding error:', error);
+            showNotification('error', 'Ошибка определения координат');
+        }
     },
     
     // Удаление
@@ -519,11 +595,16 @@ const institutionsPage = {
     submitForm: async function(event) {
         event.preventDefault();
         
+        const latValue = document.getElementById('latitude').value.trim();
+        const lngValue = document.getElementById('longitude').value.trim();
+        
         const formData = {
             name: document.getElementById('name').value.trim(),
             type: document.getElementById('type').value,
             region: document.getElementById('region').value,
             address: document.getElementById('address').value.trim(),
+            latitude: latValue ? parseFloat(latValue) : null,
+            longitude: lngValue ? parseFloat(lngValue) : null,
             phone: document.getElementById('phone').value.trim() || null,
             email: document.getElementById('email').value.trim() || null,
             website: document.getElementById('website').value.trim() || null,

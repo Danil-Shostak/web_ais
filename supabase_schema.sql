@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS institutions (
     type TEXT,
     region TEXT,
     address TEXT,
+    latitude DECIMAL(10, 7),
+    longitude DECIMAL(10, 7),
     phone TEXT,
     email TEXT,
     website TEXT,
@@ -161,6 +163,7 @@ CREATE POLICY "Уведомления могут обновять свои" ON n
 
 CREATE INDEX IF NOT EXISTS idx_institutions_type ON institutions(type);
 CREATE INDEX IF NOT EXISTS idx_institutions_region ON institutions(region);
+CREATE INDEX IF NOT EXISTS idx_institutions_coords ON institutions(latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_students_institution ON students(institution_id);
 CREATE INDEX IF NOT EXISTS idx_students_grade ON students(grade);
 CREATE INDEX IF NOT EXISTS idx_staff_institution ON staff(institution_id);
