@@ -34,17 +34,20 @@ async function initAuth() {
             currentUser = JSON.parse(savedUser);
             // Обновляем window.currentUser
             window.currentUser = currentUser;
-            // Проверка блокировки
-            const blockedUsers = JSON.parse(localStorage.getItem('blockedUsers') || '[]');
-            if (blockedUsers.includes(user.id)) {
+            
+            // Проверка профиля пользователя
+            const profile = await api.getProfile(user.id);
+            
+            // Проверка блокировки из БД
+            if (profile && profile.is_blocked) {
                 localStorage.removeItem('current_user');
                 localStorage.removeItem('authToken');
-                await supabase.auth.signOut();
                 showLogin();
+                showNotification('error', 'Ваш аккаунт заблокирован. Обратитесь к администратору.');
                 return;
             }
+            
             // Проверка: не была ли сессия завершена администратором
-            const profile = await api.getProfile(user.id);
             if (profile && profile.session_invalidated_at) {
                 const invalidatedAt = new Date(profile.session_invalidated_at);
                 const sessionStoredAt = currentUser.session_created_at ? new Date(currentUser.session_created_at) : new Date(0);
@@ -56,6 +59,7 @@ async function initAuth() {
                     return;
                 }
             }
+            
             // Загрузка профиля пользователя из Supabase
             if (profile) {
                 currentUser.profile = profile;
@@ -180,6 +184,14 @@ async function handleLogin(event) {
         } else if (!profile.email || profile.email !== user.email) {
             await api.updateUserEmail(user.id, user.email);
             profile.email = user.email;
+        }
+        
+        // Проверка блокировки при входе
+        if (profile.is_blocked) {
+            hideLoader();
+            showNotification('error', 'Ваш аккаунт заблокирован. Обратитесь к администратору.');
+            await supabase.auth.signOut();
+            return;
         }
         
         // Обновляем last_login

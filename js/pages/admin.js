@@ -6,7 +6,6 @@ const adminPage = {
     users: [],
     logs: [],
     sessions: [],
-    blockedUsers: JSON.parse(localStorage.getItem('blockedUsers') || '[]'),
     
     // Загрузка страницы
     load: async function() {
@@ -175,7 +174,7 @@ const adminPage = {
                         </thead>
                         <tbody>
                             ${this.users.length > 0 ? this.users.map(user => {
-                                const isBlocked = this.blockedUsers.includes(user.id);
+                                const isBlocked = user.is_blocked === true;
                                 const userSessions = this.sessions.filter(s => s.user_id === user.id);
                                 const sessionCount = userSessions.length;
                                 const lastLogin = user.last_login ? formatDate(user.last_login, 'datetime') : 'Нет данных';
@@ -245,7 +244,7 @@ const adminPage = {
                         </thead>
                         <tbody>
                             ${this.users.length > 0 ? this.users.map(user => {
-                                const isBlocked = this.blockedUsers.includes(user.id);
+                                const isBlocked = user.is_blocked === true;
                                 const userSessions = this.sessions.filter(s => s.user_id === user.id);
                                 const sessionCount = userSessions.length;
                                 const lastLogin = user.last_login ? formatDate(user.last_login, 'datetime') : 'Нет данных';
@@ -389,29 +388,25 @@ const adminPage = {
         if (!user) return;
         if (!confirm(`Заблокировать пользователя "${user.email}"?\nВсе активные сессии будут завершены.`)) return;
         
-        if (!this.blockedUsers.includes(userId)) {
-            this.blockedUsers.push(userId);
-            localStorage.setItem('blockedUsers', JSON.stringify(this.blockedUsers));
-        }
-        
-        // Завершаем все сессии
         try {
+            // Блокируем пользователя через API
+            await api.blockUser(userId, currentUser.id);
+            
+            // Завершаем все сессии
             await api.terminateAllUserSessions(userId);
-            await supabase.from('profiles').update({
-                session_invalidated_at: new Date().toISOString()
-            }).eq('user_id', userId);
-        } catch (e) {
-            console.error('Error terminating sessions on block:', e);
+            
+            await api.createLog({
+                user_id: currentUser.id,
+                action: 'block_user',
+                details: `Заблокирован пользователь: ${user.email}`
+            });
+            
+            showNotification('success', `Пользователь ${user.email} заблокирован`);
+            this.load();
+        } catch (error) {
+            console.error('Error blocking user:', error);
+            showNotification('error', 'Ошибка блокировки пользователя');
         }
-        
-        await api.createLog({
-            user_id: currentUser.id,
-            action: 'block_user',
-            details: `Заблокирован пользователь: ${user.email}`
-        });
-        
-        showNotification('success', `Пользователь ${user.email} заблокирован`);
-        this.render();
     },
     
     // Разблокировать пользователя
@@ -419,35 +414,22 @@ const adminPage = {
         const user = this.users.find(u => u.id === userId);
         if (!user) return;
         
-        this.blockedUsers = this.blockedUsers.filter(id => id !== userId);
-        localStorage.setItem('blockedUsers', JSON.stringify(this.blockedUsers));
-        
-        await api.createLog({
-            user_id: currentUser.id,
-            action: 'unblock_user',
-            details: `Разблокирован пользователь: ${user.email}`
-        });
-        
-        showNotification('success', `Пользователь ${user.email} разблокирован`);
-        this.render();
-    },
-    
-    // Разблокировать пользователя
-    unblockUser: async function(userId) {
-        const user = this.users.find(u => u.id === userId);
-        if (!user) return;
-        
-        this.blockedUsers = this.blockedUsers.filter(id => id !== userId);
-        localStorage.setItem('blockedUsers', JSON.stringify(this.blockedUsers));
-        
-        await api.createLog({
-            user_id: currentUser.id,
-            action: 'unblock_user',
-            details: `Разблокирован пользователь: ${user.email}`
-        });
-        
-        showNotification('success', `Пользователь ${user.email} разблокирован`);
-        this.render();
+        try {
+            // Разблокируем пользователя через API
+            await api.unblockUser(userId);
+            
+            await api.createLog({
+                user_id: currentUser.id,
+                action: 'unblock_user',
+                details: `Разблокирован пользователь: ${user.email}`
+            });
+            
+            showNotification('success', `Пользователь ${user.email} разблокирован`);
+            this.load();
+        } catch (error) {
+            console.error('Error unblocking user:', error);
+            showNotification('error', 'Ошибка разблокировки пользователя');
+        }
     },
     
     // Завершить все сессии пользователя
@@ -473,7 +455,7 @@ const adminPage = {
             });
             
             showNotification('success', `Все сессии пользователя ${user.email} завершены`);
-            await this.load();
+            this.load();
         } catch (error) {
             console.error('Error terminating sessions:', error);
             showNotification('error', 'Ошибка завершения сессий');

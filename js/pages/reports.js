@@ -257,8 +257,8 @@ const reportsPage = {
         
         const fieldLabels = {
             name: 'Название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
-            address: 'Адрес', phone: 'Телефон', email: 'Email',
-            birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс',
+            city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
+            birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
             institution_id: 'ID учреждения',
             parent_phone: 'Телефон родителя', position: 'Должность',
             hire_date: 'Дата принятия', education: 'Образование',
@@ -271,17 +271,17 @@ const reportsPage = {
         content.push({
             text: 'АИИО РБ — Автоматизация информации учреждений образования РБ',
             style: 'header',
-            margin: [0, 0, 0, 8]
+            margin: [0, 0, 0, 5]
         });
         content.push({
             text: typeLabels[type] || 'Отчет',
             style: 'subheader',
-            margin: [0, 0, 0, 4]
+            margin: [0, 0, 0, 3]
         });
         content.push({
             text: `Дата формирования: ${new Date().toLocaleDateString('ru-RU')}`,
             style: 'small',
-            margin: [0, 0, 0, 16]
+            margin: [0, 0, 0, 10]
         });
         
         if (data.length > 0) {
@@ -291,37 +291,55 @@ const reportsPage = {
                 keys.map(h => ({ text: String(item[h] || '—'), style: 'tableCell' }))
             );
             
+            // Рассчитываем ширину колонок
+            const colWidths = keys.map((k, i) => {
+                // Для больших таблиц делаем колонки уже
+                if (keys.length > 5) return 'auto';
+                return '*';
+            });
+            
             content.push({
                 table: {
                     headerRows: 1,
-                    widths: keys.map(() => '*'),
+                    widths: colWidths,
                     body: [headers, ...rows]
                 },
                 layout: {
-                    fillColor: (rowIndex) => rowIndex === 0 ? '#2563eb' : (rowIndex % 2 === 0 ? '#f8fafc' : null)
-                }
+                    hLineWidth: () => 0.5,
+                    vLineWidth: () => 0.5,
+                    hLineColor: () => '#e2e8f0',
+                    vLineColor: () => '#e2e8f0',
+                    fillColor: (rowIndex) => rowIndex === 0 ? '#2563eb' : (rowIndex % 2 === 0 ? '#f8fafc' : null),
+                    paddingLeft: () => 3,
+                    paddingRight: () => 3,
+                    paddingTop: () => 2,
+                    paddingBottom: () => 2
+                },
+                margin: [0, 0, 0, 10]
             });
             
             content.push({
                 text: `Итого записей: ${data.length}`,
                 style: 'small',
-                margin: [0, 12, 0, 0]
+                margin: [0, 5, 0, 0]
             });
         } else {
             content.push({ text: 'Данные отсутствуют', style: 'small' });
         }
         
         const docDef = {
+            pageSize: 'A4',
+            pageOrientation: keys && keys.length > 5 ? 'landscape' : 'portrait',
+            pageMargins: [20, 30, 20, 30],
             content: content,
-            defaultStyle: { font: 'Roboto', fontSize: 9 },
+            defaultStyle: { font: 'Roboto', fontSize: 8 },
             styles: {
-                header: { fontSize: 14, bold: true, color: '#1e293b' },
-                subheader: { fontSize: 11, bold: true, color: '#2563eb' },
-                small: { fontSize: 9, color: '#64748b' },
-                tableHeader: { bold: true, color: '#ffffff', fontSize: 9 },
-                tableCell: { fontSize: 8, color: '#1e293b' }
-            },
-            pageMargins: [30, 40, 30, 40]
+                header: { fontSize: 12, bold: true, color: '#1e293b' },
+                subheader: { fontSize: 10, bold: true, color: '#2563eb' },
+                small: { fontSize: 8, color: '#64748b' },
+                tableHeader: { bold: true, color: '#ffffff', fontSize: 8, alignment: 'center' },
+                tableCell: { fontSize: 7, color: '#1e293b' }
+            }
         };
         
         pdfMake.createPdf(docDef).download(filename + '.pdf');

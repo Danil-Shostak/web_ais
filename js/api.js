@@ -893,6 +893,51 @@ const api = {
         }
     },
     
+    // Заблокировать пользователя
+    async blockUser(userId, blockedBy) {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .update({ 
+                    is_blocked: true, 
+                    blocked_at: new Date().toISOString(),
+                    blocked_by: blockedBy,
+                    session_invalidated_at: new Date().toISOString()
+                })
+                .eq('user_id', userId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error blocking user:', error);
+            throw error;
+        }
+    },
+    
+    // Разблокировать пользователя
+    async unblockUser(userId) {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .update({ 
+                    is_blocked: false, 
+                    blocked_at: null,
+                    blocked_by: null
+                })
+                .eq('user_id', userId)
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error unblocking user:', error);
+            throw error;
+        }
+    },
+    
     // ==================== Показатели для дашборда ====================
     
     // Получение количества учреждений по типам

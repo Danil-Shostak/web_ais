@@ -299,12 +299,24 @@ const importPage = {
                 if (key === 'название') item.name = row[i];
                 if (key === 'тип') item.type = row[i];
                 if (key === 'регион') item.region = row[i];
+                if (key === 'город') item.city = row[i];
+                if (key === 'улица' || key === 'улица, дом') item.street = row[i];
                 if (key === 'адрес') item.address = row[i];
                 if (key === 'телефон') item.phone = row[i];
                 if (key === 'email') item.email = row[i];
                 if (key === 'сайт') item.website = row[i];
                 if (key === 'описание') item.description = row[i];
             });
+            
+            // Формируем полный адрес из города и улицы
+            if (item.city && item.street) {
+                item.address = `${item.city}, ${item.street}`;
+            } else if (item.city && !item.street) {
+                item.address = item.city;
+            } else if (!item.city && item.street) {
+                item.address = item.street;
+            }
+            
             return item;
         });
     },
@@ -353,8 +365,9 @@ const importPage = {
         let filename = '';
         
         if (type === 'institutions') {
-            data = [['Название', 'Тип', 'Регион', 'Адрес', 'Телефон', 'Email', 'Сайт', 'Описание']];
-            data.push(['Гимназия №1', 'Общее среднее', 'Минск', 'ул. Ленина, 1', '+375171100000', 'school1@edu.by', 'https://school1.edu.by', 'Гимназия с углубленным изучением иностранных языков']);
+            data = [['Название', 'Тип', 'Регион', 'Город', 'Улица, дом', 'Телефон', 'Email', 'Сайт', 'Описание']];
+            data.push(['Гимназия №1', 'Общее среднее', 'Минск', 'Минск', 'ул. Ленина, 15', '+375171100000', 'school1@edu.by', 'https://school1.edu.by', 'Гимназия с углубленным изучением иностранных языков']);
+            data.push(['Детский сад №5', 'Дошкольное', 'Гродно', 'Гродно', 'ул. Пушкина, 8', '+375152100000', 'ds5@grodno.edu.by', '', 'Детский сад с ясельными группами']);
             filename = 'template_institutions';
         } else if (type === 'students') {
             data = [['ФИО', 'Дата рождения', 'Пол', 'Класс', 'Адрес', 'Телефон родителя']];

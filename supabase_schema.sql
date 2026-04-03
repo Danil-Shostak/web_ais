@@ -8,6 +8,12 @@ CREATE TABLE IF NOT EXISTS profiles (
     user_id UUID UNIQUE NOT NULL,
     full_name TEXT,
     role TEXT DEFAULT 'user',
+    email TEXT,
+    last_login TIMESTAMPTZ,
+    is_blocked BOOLEAN DEFAULT FALSE,
+    blocked_at TIMESTAMPTZ,
+    blocked_by UUID,
+    session_invalidated_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
