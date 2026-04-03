@@ -538,7 +538,7 @@ const statisticsPage = {
         const institutionFilter = document.getElementById('institutionFilter');
         this.selectedInstitution = institutionFilter ? institutionFilter.value : '';
         
-        this.renderCharts();
+        this.render();
     },
     
     exportStats: function() {
