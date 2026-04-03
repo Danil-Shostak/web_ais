@@ -323,26 +323,40 @@ const reportsPage = {
                 style: 'small',
                 margin: [0, 5, 0, 0]
             });
+            
+            const docDef = {
+                pageSize: 'A4',
+                pageOrientation: keys.length > 5 ? 'landscape' : 'portrait',
+                pageMargins: [20, 30, 20, 30],
+                content: content,
+                defaultStyle: { font: 'Roboto', fontSize: 8 },
+                styles: {
+                    header: { fontSize: 12, bold: true, color: '#1e293b' },
+                    subheader: { fontSize: 10, bold: true, color: '#2563eb' },
+                    small: { fontSize: 8, color: '#64748b' },
+                    tableHeader: { bold: true, color: '#ffffff', fontSize: 8, alignment: 'center' },
+                    tableCell: { fontSize: 7, color: '#1e293b' }
+                }
+            };
+            
+            pdfMake.createPdf(docDef).download(filename + '.pdf');
         } else {
             content.push({ text: 'Данные отсутствуют', style: 'small' });
+            
+            const docDef = {
+                pageSize: 'A4',
+                pageMargins: [20, 30, 20, 30],
+                content: content,
+                defaultStyle: { font: 'Roboto', fontSize: 8 },
+                styles: {
+                    header: { fontSize: 12, bold: true, color: '#1e293b' },
+                    subheader: { fontSize: 10, bold: true, color: '#2563eb' },
+                    small: { fontSize: 8, color: '#64748b' }
+                }
+            };
+            
+            pdfMake.createPdf(docDef).download(filename + '.pdf');
         }
-        
-        const docDef = {
-            pageSize: 'A4',
-            pageOrientation: keys && keys.length > 5 ? 'landscape' : 'portrait',
-            pageMargins: [20, 30, 20, 30],
-            content: content,
-            defaultStyle: { font: 'Roboto', fontSize: 8 },
-            styles: {
-                header: { fontSize: 12, bold: true, color: '#1e293b' },
-                subheader: { fontSize: 10, bold: true, color: '#2563eb' },
-                small: { fontSize: 8, color: '#64748b' },
-                tableHeader: { bold: true, color: '#ffffff', fontSize: 8, alignment: 'center' },
-                tableCell: { fontSize: 7, color: '#1e293b' }
-            }
-        };
-        
-        pdfMake.createPdf(docDef).download(filename + '.pdf');
     },
     
     // Генерация Excel

@@ -338,40 +338,6 @@ const statisticsPage = {
     },
     
     // Получить количество по типу
-                                <th>Тип учреждения</th>
-                                <th>Количество</th>
-                                <th>Процент</th>
-                                <th>Визуализация</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.getTypeStats().map(stat => `
-                                <tr>
-                                    <td>${stat.type}</td>
-                                    <td>${stat.count}</td>
-                                    <td>${stat.percent}%</td>
-                                    <td>
-                                        <div style="width: 100%; background: #e2e8f0; height: 20px; border-radius: 4px;">
-                                            <div style="width: ${stat.percent}%; background: var(--primary-color); height: 100%; border-radius: 4px;"></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('pageContent').innerHTML = html;
-        
-        // Рисуем графики после рендеринга
-        setTimeout(() => {
-            this.renderCharts();
-        }, 100);
-    },
-    
-    // Получить количество по типу
     getCountByType: function(type) {
         return this.institutions.filter(i => i.type === type).length;
     },
