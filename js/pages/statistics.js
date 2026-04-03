@@ -9,7 +9,6 @@ const statisticsPage = {
     charts: {},
     selectedInstitution: '',
     
-    // Загрузка страницы
     load: async function() {
         try {
             const [institutions, students, staff] = await Promise.all([
@@ -27,7 +26,6 @@ const statisticsPage = {
         }
     },
     
-    // Рендер страницы
     render: function() {
         const institutionFilter = document.getElementById('institutionFilter');
         this.selectedInstitution = institutionFilter ? institutionFilter.value : '';
@@ -57,7 +55,6 @@ const statisticsPage = {
                 <p>Аналитические данные и визуализация показателей</p>
             </div>
             
-            <!-- Фильтры -->
             <div class="filters-bar">
                 <div class="filter-group">
                     <label>Учреждение</label>
@@ -85,7 +82,6 @@ const statisticsPage = {
             </div>
             
             ${selectedInst ? `
-            <!-- Информация о выбранном учреждении -->
             <div class="card mb-3">
                 <div class="card-header">
                     <h3>Информация об учреждении</h3>
@@ -119,7 +115,6 @@ const statisticsPage = {
             </div>
             ` : ''}
             
-            <!-- Статистические карточки -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon blue">
@@ -174,7 +169,6 @@ const statisticsPage = {
             </div>
             
             ${selectedInst ? `
-            <!-- Статистика по классам/курсам для выбранного учреждения -->
             <div class="card mb-3">
                 <div class="card-header">
                     <h3>Распределение учащихся по классам/курсам</h3>
@@ -206,7 +200,6 @@ const statisticsPage = {
             </div>
             ` : ''}
             
-            <!-- Графики -->
             ${!selectedInst ? `
             <div class="grid-2">
                 <div class="chart-container">
@@ -248,7 +241,6 @@ const statisticsPage = {
             </div>
             ` : ''}
             
-            <!-- Таблица статистики -->
             <div class="card mt-3">
                 <div class="card-header">
                     <h3>${selectedInst ? 'Статистика по типам учреждений' : 'Детальная статистика'}</h3>
@@ -287,13 +279,11 @@ const statisticsPage = {
         
         document.getElementById('pageContent').innerHTML = html;
         
-        // Рисуем графики после рендеринга
         setTimeout(() => {
             this.renderCharts();
         }, 100);
     },
     
-    // Получить статистику по выбранному учреждению
     getInstitutionStats: function(institution) {
         if (!institution) return null;
         
@@ -327,7 +317,6 @@ const statisticsPage = {
         };
     },
     
-    // Получить статистику по классам
     getGradeStats: function(students) {
         const counts = {};
         students.forEach(s => {
@@ -337,12 +326,10 @@ const statisticsPage = {
         return counts;
     },
     
-    // Получить количество по типу
     getCountByType: function(type) {
         return this.institutions.filter(i => i.type === type).length;
     },
     
-    // Получить статистику по типам
     getTypeStats: function() {
         const total = this.institutions.length;
         const counts = {};
@@ -358,7 +345,6 @@ const statisticsPage = {
         }));
     },
     
-    // Получить статистику по регионам
     getRegionStats: function() {
         const counts = {};
         
@@ -370,14 +356,12 @@ const statisticsPage = {
         return counts;
     },
     
-    // Рисование графиков
     renderCharts: function() {
         const chartTypeEl = document.getElementById('chartType');
         const selectedType = chartTypeEl ? chartTypeEl.value : 'bar';
         const institutionFilter = document.getElementById('institutionFilter');
         const selectedInstitutionId = institutionFilter ? institutionFilter.value : '';
         
-        // Определение опций в зависимости от типа
         const isPie = selectedType === 'pie';
         const baseOptions = {
             responsive: true,
@@ -395,7 +379,6 @@ const statisticsPage = {
         }
         
         if (selectedInstitutionId) {
-            // График по классам для выбранного учреждения
             const gradeCtx = document.getElementById('gradeChart');
             if (gradeCtx) {
                 const students = this.students.filter(s => s.institution_id === selectedInstitutionId);
@@ -422,7 +405,6 @@ const statisticsPage = {
                 });
             }
             
-            // График по полу
             const genderCtx = document.getElementById('genderChart');
             if (genderCtx) {
                 const students = this.students.filter(s => s.institution_id === selectedInstitutionId);
@@ -446,94 +428,89 @@ const statisticsPage = {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: true, position: 'bottom' }
-                        }
+                        plugins: { legend: { display: true, position: 'bottom' } }
                     }
                 });
             }
         } else {
-            // График по типам
-        const typeCtx = document.getElementById('typeChart');
-        if (typeCtx) {
-            const typeStats = this.getTypeStats();
-            if (this.charts.type) this.charts.type.destroy();
+            const typeCtx = document.getElementById('typeChart');
+            if (typeCtx) {
+                const typeStats = this.getTypeStats();
+                if (this.charts.type) this.charts.type.destroy();
+                
+                const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                this.charts.type = new Chart(typeCtx, {
+                    type: selectedType,
+                    data: {
+                        labels: typeStats.map(s => s.type),
+                        datasets: [{
+                            label: 'Учреждений',
+                            data: typeStats.map(s => s.count),
+                            backgroundColor: isPie ? colors : '#2563eb',
+                            borderColor: selectedType === 'line' ? '#2563eb' : undefined,
+                            fill: selectedType === 'line',
+                            tension: 0.4,
+                            borderWidth: isPie ? 0 : 1
+                        }]
+                    },
+                    options: JSON.parse(JSON.stringify(baseOptions))
+                });
+            }
             
-            const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-            this.charts.type = new Chart(typeCtx, {
-                type: selectedType,
-                data: {
-                    labels: typeStats.map(s => s.type),
-                    datasets: [{
-                        label: 'Учреждений',
-                        data: typeStats.map(s => s.count),
-                        backgroundColor: isPie ? colors : '#2563eb',
-                        borderColor: selectedType === 'line' ? '#2563eb' : undefined,
-                        fill: selectedType === 'line',
-                        tension: 0.4,
-                        borderWidth: isPie ? 0 : 1
-                    }]
-                },
-                options: JSON.parse(JSON.stringify(baseOptions))
-            });
-        }
-        
-        // График по регионам
-        const regionCtx = document.getElementById('regionChart');
-        if (regionCtx) {
-            const regionStats = this.getRegionStats();
-            if (this.charts.region) this.charts.region.destroy();
+            const regionCtx = document.getElementById('regionChart');
+            if (regionCtx) {
+                const regionStats = this.getRegionStats();
+                if (this.charts.region) this.charts.region.destroy();
+                
+                const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                const vals = Object.values(regionStats);
+                this.charts.region = new Chart(regionCtx, {
+                    type: selectedType,
+                    data: {
+                        labels: Object.keys(regionStats),
+                        datasets: [{
+                            label: 'Количество',
+                            data: vals,
+                            backgroundColor: isPie ? colors.slice(0, vals.length) : '#10b981',
+                            borderColor: selectedType === 'line' ? '#10b981' : undefined,
+                            fill: selectedType === 'line',
+                            tension: 0.4,
+                            borderWidth: isPie ? 0 : 1
+                        }]
+                    },
+                    options: JSON.parse(JSON.stringify(baseOptions))
+                });
+            }
             
-            const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-            const vals = Object.values(regionStats);
-            this.charts.region = new Chart(regionCtx, {
-                type: selectedType,
-                data: {
-                    labels: Object.keys(regionStats),
-                    datasets: [{
-                        label: 'Количество',
-                        data: vals,
-                        backgroundColor: isPie ? colors.slice(0, vals.length) : '#10b981',
-                        borderColor: selectedType === 'line' ? '#10b981' : undefined,
-                        fill: selectedType === 'line',
-                        tension: 0.4,
-                        borderWidth: isPie ? 0 : 1
-                    }]
-                },
-                options: JSON.parse(JSON.stringify(baseOptions))
-            });
-        }
-        
-        // График по годам (всегда линейный — динамика)
-        const timelineCtx = document.getElementById('timelineChart');
-        if (timelineCtx) {
-            const yearStats = this.getYearStats();
-            if (this.charts.timeline) this.charts.timeline.destroy();
-            
-            this.charts.timeline = new Chart(timelineCtx, {
-                type: selectedType === 'pie' ? 'bar' : selectedType,
-                data: {
-                    labels: Object.keys(yearStats),
-                    datasets: [{
-                        label: 'Создано учреждений',
-                        data: Object.values(yearStats),
-                        borderColor: '#f59e0b',
-                        backgroundColor: selectedType === 'line' ? 'rgba(245,158,11,0.1)' : '#f59e0b',
-                        fill: selectedType === 'line',
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
+            const timelineCtx = document.getElementById('timelineChart');
+            if (timelineCtx) {
+                const yearStats = this.getYearStats();
+                if (this.charts.timeline) this.charts.timeline.destroy();
+                
+                this.charts.timeline = new Chart(timelineCtx, {
+                    type: selectedType === 'pie' ? 'bar' : selectedType,
+                    data: {
+                        labels: Object.keys(yearStats),
+                        datasets: [{
+                            label: 'Создано учреждений',
+                            data: Object.values(yearStats),
+                            borderColor: '#f59e0b',
+                            backgroundColor: selectedType === 'line' ? 'rgba(245,158,11,0.1)' : '#f59e0b',
+                            fill: selectedType === 'line',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
         }
     },
     
-    // Получить статистику по годам
     getYearStats: function() {
         const counts = {};
         
@@ -544,7 +521,6 @@ const statisticsPage = {
             }
         });
         
-        // Заполнить отсутствующие годы
         const years = Object.keys(counts).sort();
         if (years.length > 0) {
             const minYear = Math.min(...years);
@@ -558,39 +534,30 @@ const statisticsPage = {
         return counts;
     },
     
-    // Обновить графики и данные
     updateCharts: function() {
-        // Сохраняем текущее значение фильтра
         const institutionFilter = document.getElementById('institutionFilter');
         this.selectedInstitution = institutionFilter ? institutionFilter.value : '';
         
-        // Перерисовываем графики с новыми данными
         this.renderCharts();
     },
     
-    // Экспорт статистики
     exportStats: function() {
         const typeStats = this.getTypeStats();
         
-        // Добавление заголовков
         const data = [['Тип', 'Количество', 'Процент']];
         
-        // Добавление данных
         typeStats.forEach(stat => {
             data.push([stat.type, stat.count, stat.percent + '%']);
         });
         
-        // Создание книги Excel
         const ws = XLSX.utils.aoa_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Статистика');
         
-        // Сохранение файла
         XLSX.writeFile(wb, 'statistics.xlsx');
         
         showNotification('success', 'Статистика экспортирована в Excel');
     }
 };
 
-// Экспорт
 window.statisticsPage = statisticsPage;
