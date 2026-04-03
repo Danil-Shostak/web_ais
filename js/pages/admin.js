@@ -149,77 +149,7 @@ const adminPage = {
                             `}
                         </tbody>
                     </table>
-                </div>
-            </div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Пользователь</th>
-                                <th>Email</th>
-                                <th>Роль</th>
-                                <th>Активных сессий</th>
-                                <th>Последний вход</th>
-                                <th>Статус</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.users.length > 0 ? this.users.map(user => {
-                                const isBlocked = user.is_blocked === true;
-                                const userSessions = this.sessions.filter(s => s.user_id === user.id);
-                                const sessionCount = userSessions.length;
-                                const lastLogin = user.last_login ? formatDate(user.last_login, 'datetime') : 'Нет данных';
-                                const isCurrentUser = currentUser && user.id === currentUser.id;
-                                return `
-                                    <tr style="${isBlocked ? 'opacity:0.6;background:#fef2f2;' : ''}">
-                                        <td>
-                                            <strong>${escapeHtml(user.full_name || '—')}</strong>
-                                            ${isCurrentUser ? '<span class="badge" style="background:#10b981;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">Вы</span>' : ''}
-                                        </td>
-                                        <td>${escapeHtml(user.email || '—')}</td>
-                                        <td>${CONFIG.userRoles[user.role] || user.role || 'Пользователь'}</td>
-                                        <td>
-                                            <span style="color:${sessionCount > 0 ? '#10b981' : '#6b7280'};font-weight:500;">
-                                                ${sessionCount > 0 ? sessionCount + ' активн.' : 'Нет сессий'}
-                                            </span>
-                                        </td>
-                                        <td style="font-size:12px;color:var(--text-secondary);">${lastLogin}</td>
-                                        <td>
-                                            ${isBlocked
-                                                ? '<span style="color:#ef4444;font-weight:500;">🚫 Заблокирован</span>'
-                                                : '<span style="color:#10b981;font-weight:500;">✓ Активен</span>'}
-                                        </td>
-                                        <td>
-                                            <div class="table-actions">
-                                                ${!isCurrentUser ? `
-                                                    ${isBlocked
-                                                        ? `<button class="btn-secondary btn-sm" onclick="adminPage.unblockUser('${user.id}')">Разблокировать</button>`
-                                                        : `<button class="btn-secondary btn-sm" style="color:#ef4444;" onclick="adminPage.blockUser('${user.id}')">Заблокировать</button>`
-                                                    }
-                                                    ${sessionCount > 0 ? `
-                                                        <button class="btn-secondary btn-sm" onclick="adminPage.terminateAllUserSessions('${user.id}')" title="Завершить все сессии">
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                                                            Завершить сессии
-                                                        </button>
-                                                    ` : ''}
-                                                    <button class="btn-icon" onclick="adminPage.editUserRole('${user.id}')" title="Изменить роль">
-                                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                            <circle cx="12" cy="12" r="3"></circle>
-                                                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                                                        </svg>
-                                                    </button>
-                                                ` : '<span class="text-muted" style="font-size:12px;">Текущий сеанс</span>'}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `;
-                            }).join('') : `
-                                <tr><td colspan="7" class="text-center text-muted">Нет пользователей</td></tr>
-                            `}
-                        </tbody>
-                    </table>
-                </div>
+</div>
             </div>
             
             <!-- Дополнительные настройки -->

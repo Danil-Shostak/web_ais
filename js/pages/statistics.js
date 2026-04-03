@@ -531,7 +531,7 @@ const statisticsPage = {
                 }
             });
         }
-    },
+    }
     
     // Получить статистику по годам
     getYearStats: function() {
