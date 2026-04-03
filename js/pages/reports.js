@@ -201,9 +201,11 @@ const reportsPage = {
                     break;
             }
             
-            // Создание отчетов в выбранных форматах
+            // Сохраняем отчет в БД и создаем файлы
+            const reportId = await this.saveReport(type, title, data, formats);
+            
             for (const format of formats) {
-                await this.createReportFile(data, type, format);
+                await this.createReportFile(data, type, format, reportId, title);
             }
             
             // Логирование
@@ -223,8 +225,31 @@ const reportsPage = {
         hideLoader();
     },
     
+    // Сохранение отчета в БД
+    saveReport: async function(type, title, data, formats) {
+        try {
+            const { data: report, error } = await supabase
+                .from('reports')
+                .insert([{
+                    user_id: currentUser.id,
+                    type: type,
+                    title: title,
+                    format: formats.join(', '),
+                    data: JSON.stringify({ record_count: data.length }),
+                    created_at: new Date().toISOString()
+                }])
+                .select()
+                .single();
+            
+            if (error) throw error;
+            return report?.id;
+        } catch (error) {
+            console.error('Error saving report:', error);
+        }
+    },
+    
     // Создание файла отчета
-    createReportFile: async function(data, type, format) {
+    createReportFile: async function(data, type, format, reportId, title) {
         const timestamp = new Date().toISOString().slice(0, 10);
         let filename = `report_${type}_${timestamp}`;
         let content = '';

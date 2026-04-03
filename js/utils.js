@@ -138,17 +138,51 @@ function showNotification(type, message) {
     }, 5000);
 }
 
-function showNotifications() {
+async function showNotifications() {
     const typeLabels = { success: 'Успех', error: 'Ошибка', warning: 'Предупреждение', info: 'Информация' };
+    
+    // Загружаем уведомления из БД
+    let dbNotifications = [];
+    if (currentUser?.id) {
+        try {
+            dbNotifications = await api.getNotifications(currentUser.id);
+        } catch (e) {
+            console.error('Error loading notifications:', e);
+        }
+    }
+    
     const typeColors = { success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#06b6d4' };
     const typeIcons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
     
-    // Строим содержимое модального окна
-    let content;
-    if (!appNotifications || appNotifications.length === 0) {
-        content = '<p class="text-muted text-center" style="padding: 24px;">Нет уведомлений</p>';
-    } else {
-        content = '<div style="max-height: 400px; overflow-y: auto;">';
+    let content = '<div style="max-height: 400px; overflow-y: auto;">';
+    
+    // Показываем уведомления из БД
+    if (dbNotifications && dbNotifications.length > 0) {
+        content += '<div style="padding: 8px; background: var(--bg-secondary); font-size: 12px; color: var(--text-secondary);">Системные уведомления</div>';
+        dbNotifications.forEach(function(n) {
+            const nType = n.type || 'info';
+            const icon = typeIcons[nType] || 'ℹ';
+            const color = typeColors[nType] || '#64748b';
+            const label = typeLabels[nType] || nType;
+            const timeStr = n.created_at ? formatDate(n.created_at, 'datetime') : '';
+            const opacity = n.read ? 'opacity: 0.6;' : '';
+            const dot = n.read ? '' : '<span style="width:8px;height:8px;border-radius:50%;background:var(--primary-color);flex-shrink:0;margin-top:4px;"></span>';
+            
+            content += '<div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); display: flex; gap: 12px; align-items: flex-start; ' + opacity + '">';
+            content += '<span style="color: ' + color + '; font-size: 18px; flex-shrink: 0;">' + icon + '</span>';
+            content += '<div style="flex: 1;">';
+            content += '<div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 2px;">' + label + ' · ' + timeStr + '</div>';
+            content += '<div><strong>' + (n.title || '') + '</strong></div>';
+            content += '<div style="font-size: 13px;">' + (n.message || '') + '</div>';
+            content += '</div>';
+            content += dot;
+            content += '</div>';
+        });
+    }
+    
+    // Показываем временные уведомления
+    if (appNotifications && appNotifications.length > 0) {
+        content += '<div style="padding: 8px; background: var(--bg-secondary); font-size: 12px; color: var(--text-secondary);">Временные уведомления</div>';
         appNotifications.forEach(function(n) {
             const icon = typeIcons[n.type] || 'ℹ';
             const color = typeColors[n.type] || '#64748b';
@@ -166,10 +200,20 @@ function showNotifications() {
             content += dot;
             content += '</div>';
         });
+    }
+    
+    if ((!dbNotifications || dbNotifications.length === 0) && (!appNotifications || appNotifications.length === 0)) {
+        content = '<p class="text-muted text-center" style="padding: 24px;">Нет уведомлений</p>';
+    } else {
         content += '</div>';
     }
     
     // Помечаем все как прочитанные
+    if (dbNotifications && dbNotifications.length > 0) {
+        dbNotifications.forEach(async function(n) {
+            if (!n.read) await api.markNotificationRead(n.id);
+        });
+    }
     if (appNotifications && appNotifications.length > 0) {
         appNotifications.forEach(function(n) { n.read = true; });
     }
