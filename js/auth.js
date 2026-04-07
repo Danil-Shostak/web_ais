@@ -95,6 +95,42 @@ function showApp() {
     // Загрузка меню
     loadNavigation();
     
+    // Периодическая проверка сессии (каждые 30 секунд)
+    if (window.sessionCheckInterval) {
+        clearInterval(window.sessionCheckInterval);
+    }
+    window.sessionCheckInterval = setInterval(async () => {
+        if (!currentUser?.id) return;
+        try {
+            const profile = await api.getProfile(currentUser.id);
+            if (profile) {
+                if (profile.session_invalidated_at) {
+                    const invalidatedAt = new Date(profile.session_invalidated_at);
+                    const sessionStoredAt = currentUser.session_created_at ? new Date(currentUser.session_created_at) : new Date(0);
+                    if (invalidatedAt > sessionStoredAt) {
+                        clearInterval(window.sessionCheckInterval);
+                        localStorage.removeItem('current_user');
+                        localStorage.removeItem('authToken');
+                        await supabase.auth.signOut();
+                        showLogin();
+                        showNotification('error', 'Сессия завершена администратором.');
+                        return;
+                    }
+                }
+                if (profile.is_blocked) {
+                    clearInterval(window.sessionCheckInterval);
+                    localStorage.removeItem('current_user');
+                    localStorage.removeItem('authToken');
+                    showLogin();
+                    showNotification('error', 'Ваш аккаунт заблокирован.');
+                    return;
+                }
+            }
+        } catch (e) {
+            console.error('Periodic session check error:', e);
+        }
+    }, 30000);
+    
     // Переход на дашборд
     navigateTo('dashboard');
 }

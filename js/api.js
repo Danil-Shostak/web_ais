@@ -493,7 +493,7 @@ const api = {
         try {
             const { data: result, error } = await supabase
                 .from('notifications')
-                .insert([{ ...data, read: false }])
+                .insert([{ ...data, is_read: false }])
                 .select()
                 .single();
             
@@ -510,7 +510,7 @@ const api = {
         try {
             const { error } = await supabase
                 .from('notifications')
-                .update({ read: true })
+                .update({ is_read: true, read_at: new Date().toISOString() })
                 .eq('id', id);
             
             if (error) throw error;

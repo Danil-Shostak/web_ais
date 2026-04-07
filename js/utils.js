@@ -165,8 +165,9 @@ async function showNotifications() {
             const color = typeColors[nType] || '#64748b';
             const label = typeLabels[nType] || nType;
             const timeStr = n.created_at ? formatDate(n.created_at, 'datetime') : '';
-            const opacity = n.read ? 'opacity: 0.6;' : '';
-            const dot = n.read ? '' : '<span style="width:8px;height:8px;border-radius:50%;background:var(--primary-color);flex-shrink:0;margin-top:4px;"></span>';
+            const isRead = n.is_read || false;
+            const opacity = isRead ? 'opacity: 0.6;' : '';
+            const dot = isRead ? '' : '<span style="width:8px;height:8px;border-radius:50%;background:var(--primary-color);flex-shrink:0;margin-top:4px;"></span>';
             
             content += '<div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); display: flex; gap: 12px; align-items: flex-start; ' + opacity + '">';
             content += '<span style="color: ' + color + '; font-size: 18px; flex-shrink: 0;">' + icon + '</span>';
@@ -211,7 +212,7 @@ async function showNotifications() {
     // Помечаем все как прочитанные
     if (dbNotifications && dbNotifications.length > 0) {
         dbNotifications.forEach(async function(n) {
-            if (!n.read) await api.markNotificationRead(n.id);
+            if (!n.is_read) await api.markNotificationRead(n.id);
         });
     }
     if (appNotifications && appNotifications.length > 0) {
@@ -280,7 +281,35 @@ function toggleSidebar() {
 }
 
 // Навигация по страницам
-function navigateTo(page) {
+async function navigateTo(page) {
+    // Проверка валидности сессии перед навигацией
+    if (currentUser?.id) {
+        try {
+            const profile = await api.getProfile(currentUser.id);
+            if (profile && profile.session_invalidated_at) {
+                const invalidatedAt = new Date(profile.session_invalidated_at);
+                const sessionStoredAt = currentUser.session_created_at ? new Date(currentUser.session_created_at) : new Date(0);
+                if (invalidatedAt > sessionStoredAt) {
+                    localStorage.removeItem('current_user');
+                    localStorage.removeItem('authToken');
+                    await supabase.auth.signOut();
+                    showLogin();
+                    showNotification('error', 'Сессия завершена. Войдите в систему снова.');
+                    return;
+                }
+            }
+            if (profile && profile.is_blocked) {
+                localStorage.removeItem('current_user');
+                localStorage.removeItem('authToken');
+                showLogin();
+                showNotification('error', 'Ваш аккаунт заблокирован. Обратитесь к администратору.');
+                return;
+            }
+        } catch (e) {
+            console.error('Session check error:', e);
+        }
+    }
+    
     // Обновление активного пункта меню
     document.querySelectorAll('.sidebar-nav a').forEach(link => {
         link.classList.remove('active');

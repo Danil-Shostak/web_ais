@@ -6,6 +6,8 @@
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type TEXT CHECK (type IN ('system', 'report', 'alert', 'reminder', 'info'));
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'normal';
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link_url TEXT;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
 
 -- 2. Добавляем недостающие колонки в reports  
 ALTER TABLE reports ADD COLUMN IF NOT EXISTS format TEXT;
