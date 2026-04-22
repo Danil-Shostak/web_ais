@@ -5,8 +5,8 @@
 const CONFIG = {
     // Настройки Supabase
     supabase: {
-        url: 'https://ohjftdvryldrdkerxvsa.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oamZ0ZHZyeWxkcmRrZXJ4dnNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzODE0MTcsImV4cCI6MjA4OTk1NzQxN30.3WZ-_GMNTnrUOcWJpwcgcvVrWG-ZgwHopVEMLRrq9TQ'
+        url: 'https://ohjftdvryldrdkerxvsa.supabase.chttps://ohjftdvryldrdkerxvsa.supabase.co',
+        anonKey: 'sb_secret_18Za0FmRFvOwXi5AE0lIYQ_UZZkFiYd'
     },
     
     // Настройки приложения
