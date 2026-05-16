@@ -3,10 +3,11 @@
 // ========================================
 
 const CONFIG = {
-    // Настройки Supabase — ключи хранятся в локальном хранилище для избежания сканирования
+    // Настройки Supabase — значения считываются из localStorage при запуске,
+    // чтобы ключи никогда не попадали в репозиторий в открытом виде.
     supabase: {
-        url: 'https://ohjftdvryldrdkerxvsa.supabase.co',
-        anonKey: _decodeKey('c2Jfc2VjcmV0XzE4WmEwRm1SRnZPd1hpNUFFMGxJZVdfVVpra0ZpWWQ=')
+        url: localStorage.getItem('sb_url') || '',
+        anonKey: localStorage.getItem('sb_key') || ''
     },
     
     // Настройки приложения
@@ -63,16 +64,6 @@ const CONFIG = {
         'Нарушения'
     ]
 };
-
-// Вспомогательная функция для расшифровки ключа (base64), чтобы скрипты секретного сканирования не видели открытый ключ
-function _decodeKey(b64) {
-    try {
-        return atob(b64);
-    } catch (e) {
-        console.error('_decodeKey: не удалось декодировать base64', e);
-        return b64;
-    }
-}
 
 // Функция для получения базового URL API
 const API_URL = CONFIG.supabase.url + '/rest/v1';
