@@ -231,7 +231,7 @@ const reportsPage = {
             const { data: report, error } = await supabase
                 .from('reports')
                 .insert([{
-                    user_id: currentUser.id,
+                user_id: currentUser.id,
                     type: type,
                     title: title,
                     format: formats.join(', '),
@@ -281,13 +281,17 @@ const reportsPage = {
         };
         
         const fieldLabels = {
-            name: 'Название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
+            name: 'Название', short_name: 'Краткое название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
             city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
             birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
-            institution_id: 'ID учреждения',
+            institution_id: 'Учреждение', is_active: 'Активен',
             parent_phone: 'Телефон родителя', position: 'Должность',
-            hire_date: 'Дата принятия', education: 'Образование',
-            specialty: 'Специальность', website: 'Сайт', description: 'Описание'
+            hire_date: 'Дата приема', education: 'Образование',
+            specialty: 'Специальность', website: 'Сайт', description: 'Описание',
+            created_at: 'Дата создания', updated_at: 'Дата обновления',
+            license_number: 'Номер лицензии', department: 'Отдел',
+            parent_name: 'ФИО родителя', house_number: 'Номер дома',
+            license_text: 'Описание лицензии'
         };
         
         const content = [];
@@ -310,10 +314,17 @@ const reportsPage = {
         });
         
         if (data.length > 0) {
-            const keys = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at', 'institution_id'].includes(k));
+            const keys = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
             const headers = keys.map(k => ({ text: fieldLabels[k] || k, style: 'tableHeader' }));
+            
+            // Отображаемый текст для значений: переводим булевы поля в читаемый вид
+            function displayValue(val, key) {
+                if (key === 'is_active') return val === true || val === 'true' ? 'Активен' : 'Не активен';
+                return val === null || val === undefined || val === '' ? '—' : String(val);
+            }
+            
             const rows = data.map(item =>
-                keys.map(h => ({ text: String(item[h] || '—'), style: 'tableCell' }))
+                keys.map(k => ({ text: displayValue(item[k], k), style: 'tableCell' }))
             );
             
             // Рассчитываем ширину колонок
@@ -391,12 +402,29 @@ const reportsPage = {
             return;
         }
         
-        // Подготовка данных
-        const headers = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
-        const rows = data.map(item => headers.map(h => item[h] || ''));
+        // Подготовка данных — используем русские названия столбцов
+        const fieldLabels = {
+            name: 'Название', short_name: 'Краткое название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
+            city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
+            birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
+            institution_id: 'Учреждение', is_active: 'Активен',
+            parent_phone: 'Телефон родителя', position: 'Должность',
+            hire_date: 'Дата приема', education: 'Образование',
+            specialty: 'Специальность', website: 'Сайт', description: 'Описание',
+            created_at: 'Дата создания', updated_at: 'Дата обновления',
+            license_number: 'Номер лицензии', department: 'Отдел',
+            parent_name: 'ФИО родителя', house_number: 'Номер дома'
+        };
+        
+        const excelHeaders = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
+        const translatedHeaders = excelHeaders.map(k => fieldLabels[k] || k);
+        const rows = data.map(item => excelHeaders.map(k => {
+            if (k === 'is_active') return item[k] === true || item[k] === 'true' ? 'Активен' : 'Не активен';
+            return item[k] ?? '—';
+        }));
         
         // Создание книги
-        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+        const ws = XLSX.utils.aoa_to_sheet([translatedHeaders, ...rows]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Отчет');
         

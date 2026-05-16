@@ -11,8 +11,10 @@ const dashboardPage = {
                 api.getInstitutions({ limit: 1000 }),
                 api.getTotalStudents(),
                 api.getTotalStaff(),
-                api.getLogs({ limit: 10 })
+                api.getLogs({ user_id: currentUser.id, limit: 10 })
             ]);
+            // Отфильтровываем логи, оставляем только текущего пользователя (на случай если БД возвращает все)
+            const userRecentLogs = recentLogs.filter(log => log.user_id === currentUser.id);
             
             // Подсчет по типам учреждений
             const typeCounts = {};
@@ -23,7 +25,7 @@ const dashboardPage = {
             // Генерация HTML дашборда
             const html = `
                 <div class="page-header">
-                    <h1>Дашборд</h1>
+                    <h1>Главная страница</h1>
                     <p>Обзор системы автоматизации образования</p>
                 </div>
                 
@@ -77,7 +79,7 @@ const dashboardPage = {
                             </svg>
                         </div>
                         <div class="stat-info">
-                            <h4>${recentLogs.length}</h4>
+                            <h4>${userRecentLogs.length}</h4>
                             <p>Активность (сегодня)</p>
                         </div>
                     </div>
@@ -101,9 +103,9 @@ const dashboardPage = {
                             <h3>Последняя активность</h3>
                         </div>
                         <div class="card-body">
-                            ${recentLogs.length > 0 ? `
+                            ${userRecentLogs.length > 0 ? `
                                 <ul class="activity-list">
-                                    ${recentLogs.map(log => `
+                                    ${userRecentLogs.map(log => `
                                         <li>
                                             <div class="activity-icon">
                                                 ${this.getActivityIcon(log.action)}

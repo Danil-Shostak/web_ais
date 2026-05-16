@@ -330,6 +330,17 @@ const statisticsPage = {
         return this.institutions.filter(i => i.type === type).length;
     },
     
+    getTotalStats: function() {
+        const counts = {};
+        this.institutions.forEach(inst => {
+            if (inst.created_at) {
+                const year = new Date(inst.created_at).getFullYear();
+                counts[year] = (counts[year] || 0) + 1;
+            }
+        });
+        return counts;
+    },
+    
     getTypeStats: function() {
         const total = this.institutions.length;
         const counts = {};
@@ -438,9 +449,10 @@ const statisticsPage = {
                 const typeStats = this.getTypeStats();
                 if (this.charts.type) this.charts.type.destroy();
                 
+                const isPie = selectedType === 'pie';
                 const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
                 this.charts.type = new Chart(typeCtx, {
-                    type: selectedType,
+                    type: selectedType === 'pie' ? 'pie' : selectedType,
                     data: {
                         labels: typeStats.map(s => s.type),
                         datasets: [{
@@ -481,10 +493,10 @@ const statisticsPage = {
                     options: JSON.parse(JSON.stringify(baseOptions))
                 });
             }
-            
+
             const timelineCtx = document.getElementById('timelineChart');
             if (timelineCtx) {
-                const yearStats = this.getYearStats();
+                const yearStats = this.getTotalStats();
                 if (this.charts.timeline) this.charts.timeline.destroy();
                 
                 this.charts.timeline = new Chart(timelineCtx, {
@@ -509,29 +521,6 @@ const statisticsPage = {
                 });
             }
         }
-    },
-    
-    getYearStats: function() {
-        const counts = {};
-        
-        this.institutions.forEach(inst => {
-            if (inst.created_at) {
-                const year = new Date(inst.created_at).getFullYear();
-                counts[year] = (counts[year] || 0) + 1;
-            }
-        });
-        
-        const years = Object.keys(counts).sort();
-        if (years.length > 0) {
-            const minYear = Math.min(...years);
-            const maxYear = Math.max(...years) || new Date().getFullYear();
-            
-            for (let y = minYear; y <= maxYear; y++) {
-                if (!counts[y]) counts[y] = 0;
-            }
-        }
-        
-        return counts;
     },
     
     updateCharts: function() {

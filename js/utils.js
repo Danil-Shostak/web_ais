@@ -509,10 +509,25 @@ function exportToCSV(data, filename) {
         return;
     }
     
-    const headers = Object.keys(data[0]);
+    const fieldLabels = {
+        name: 'Название', short_name: 'Краткое название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
+        city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
+        birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
+        institution_id: 'Учреждение', is_active: 'Активен',
+        parent_phone: 'Телефон родителя', position: 'Должность',
+        hire_date: 'Дата приёма', education: 'Образование',
+        specialty: 'Специальность', website: 'Сайт', description: 'Описание',
+        Показатель: 'Показатель', Значение: 'Значение'
+    };
+    const keys = Object.keys(data[0]);
+    const headers = keys.map(k => fieldLabels[k] || k);
     const csvContent = [
         headers.join(','),
-        ...data.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))
+        ...data.map(row => headers.map((h, i) => {
+            const k = keys[i];
+            if (k === 'is_active') return (row[k] === true || row[k] === 'true') ? 'Активен' : 'Не активен';
+            return `"${row[k] ?? ''}"`;
+        }).join(','))
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
