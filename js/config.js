@@ -3,10 +3,10 @@
 // ========================================
 
 const CONFIG = {
-    // Настройки Supabase
+    // Настройки Supabase — читаются из переменных окружения в сборочном конфиге
     supabase: {
-        url: 'https://ohjftdvryldrdkerxvsa.supabase.chttps://ohjftdvryldrdkerxvsa.supabase.co',
-        anonKey: 'sb_secret_18Za0FmRFvOwXi5AE0lIYQ_UZZkFiYd'
+        url: '',                                              // SB_URL — заполняется при сборке
+        anonKey: ''                                           // SB_ANON_KEY — заполняется при сборке
     },
     
     // Настройки приложения
