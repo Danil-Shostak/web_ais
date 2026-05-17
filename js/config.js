@@ -3,11 +3,10 @@
 // ========================================
 
 const CONFIG = {
-    // Настройки Supabase — значения считываются из localStorage при запуске,
-    // чтобы ключи никогда не попадали в репозиторий в открытом виде.
+    // Настройки Supabase
     supabase: {
-        url: localStorage.getItem('sb_url') || '',
-        anonKey: localStorage.getItem('sb_key') || ''
+        url: 'https://ohjftdvryldrdkerxvsa.supabase.co',
+        anonKey: 'sb_secret_nC6260HF2_LMSqeQ471oCA_twfaq9oi'
     },
     
     // Настройки приложения
