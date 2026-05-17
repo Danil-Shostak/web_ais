@@ -70,15 +70,6 @@ const statisticsPage = {
                         <option value="year">За год</option>
                         <option value="month">За месяц</option>
                     </select>
-                </div>
-                <div class="filter-group">
-                    <label>Тип графика</label>
-                    <select id="chartType" onchange="statisticsPage.updateCharts()">
-                        <option value="bar">Столбчатая диаграмма</option>
-                        <option value="line">Линейный график</option>
-                        <option value="pie">Круговая диаграмма</option>
-                    </select>
-                </div>
             </div>
             
             ${selectedInst ? `
@@ -368,26 +359,15 @@ const statisticsPage = {
     },
     
     renderCharts: function() {
-        const chartTypeEl = document.getElementById('chartType');
-        const selectedType = chartTypeEl ? chartTypeEl.value : 'bar';
         const institutionFilter = document.getElementById('institutionFilter');
         const selectedInstitutionId = institutionFilter ? institutionFilter.value : '';
         
-        const isPie = selectedType === 'pie';
         const baseOptions = {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: isPie,
-                    position: 'bottom',
-                    labels: { padding: 15, usePointStyle: true }
-                }
-            }
+            plugins: { legend: { display: true, position: 'bottom' } },
+            scales: { y: { beginAtZero: true } }
         };
-        if (!isPie) {
-            baseOptions.scales = { y: { beginAtZero: true } };
-        }
         
         if (selectedInstitutionId) {
             const gradeCtx = document.getElementById('gradeChart');
@@ -397,19 +377,15 @@ const statisticsPage = {
                 
                 if (this.charts.grade) this.charts.grade.destroy();
                 
-                const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
                 this.charts.grade = new Chart(gradeCtx, {
-                    type: selectedType === 'pie' ? 'pie' : 'bar',
+                    type: 'bar',
                     data: {
                         labels: Object.keys(gradeStats),
                         datasets: [{
                             label: 'Учащихся',
                             data: Object.values(gradeStats),
-                            backgroundColor: isPie ? colors : '#2563eb',
-                            borderColor: selectedType === 'line' ? '#2563eb' : undefined,
-                            fill: selectedType === 'line',
-                            tension: 0.4,
-                            borderWidth: isPie ? 0 : 1
+                            backgroundColor: '#2563eb',
+                            borderWidth: 1
                         }]
                     },
                     options: JSON.parse(JSON.stringify(baseOptions))
@@ -428,7 +404,7 @@ const statisticsPage = {
                 if (this.charts.gender) this.charts.gender.destroy();
                 
                 this.charts.gender = new Chart(genderCtx, {
-                    type: 'pie',
+                    type: 'bar',
                     data: {
                         labels: ['Мальчики', 'Девочки'],
                         datasets: [{
@@ -449,20 +425,15 @@ const statisticsPage = {
                 const typeStats = this.getTypeStats();
                 if (this.charts.type) this.charts.type.destroy();
                 
-                const isPie = selectedType === 'pie';
-                const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
                 this.charts.type = new Chart(typeCtx, {
-                    type: selectedType === 'pie' ? 'pie' : selectedType,
+                    type: 'bar',
                     data: {
                         labels: typeStats.map(s => s.type),
                         datasets: [{
                             label: 'Учреждений',
                             data: typeStats.map(s => s.count),
-                            backgroundColor: isPie ? colors : '#2563eb',
-                            borderColor: selectedType === 'line' ? '#2563eb' : undefined,
-                            fill: selectedType === 'line',
-                            tension: 0.4,
-                            borderWidth: isPie ? 0 : 1
+                            backgroundColor: '#2563eb',
+                            borderWidth: 1
                         }]
                     },
                     options: JSON.parse(JSON.stringify(baseOptions))
@@ -474,20 +445,16 @@ const statisticsPage = {
                 const regionStats = this.getRegionStats();
                 if (this.charts.region) this.charts.region.destroy();
                 
-                const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
                 const vals = Object.values(regionStats);
                 this.charts.region = new Chart(regionCtx, {
-                    type: selectedType,
+                    type: 'bar',
                     data: {
                         labels: Object.keys(regionStats),
                         datasets: [{
                             label: 'Количество',
                             data: vals,
-                            backgroundColor: isPie ? colors.slice(0, vals.length) : '#10b981',
-                            borderColor: selectedType === 'line' ? '#10b981' : undefined,
-                            fill: selectedType === 'line',
-                            tension: 0.4,
-                            borderWidth: isPie ? 0 : 1
+                            backgroundColor: '#10b981',
+                            borderWidth: 1
                         }]
                     },
                     options: JSON.parse(JSON.stringify(baseOptions))
@@ -500,16 +467,14 @@ const statisticsPage = {
                 if (this.charts.timeline) this.charts.timeline.destroy();
                 
                 this.charts.timeline = new Chart(timelineCtx, {
-                    type: selectedType === 'pie' ? 'bar' : selectedType,
+                    type: 'bar',
                     data: {
                         labels: Object.keys(yearStats),
                         datasets: [{
                             label: 'Создано учреждений',
                             data: Object.values(yearStats),
-                            borderColor: '#f59e0b',
-                            backgroundColor: selectedType === 'line' ? 'rgba(245,158,11,0.1)' : '#f59e0b',
-                            fill: selectedType === 'line',
-                            tension: 0.4
+                            backgroundColor: '#f59e0b',
+                            borderWidth: 1
                         }]
                     },
                     options: {
