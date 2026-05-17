@@ -6,7 +6,7 @@ const CONFIG = {
     // Настройки Supabase
     supabase: {
         url: 'https://ohjftdvryldrdkerxvsa.supabase.co',
-        anonKey: 'sb_secret_nC6260HF2_LMSqeQ471oCA_twfaq9oi'
+        anonKey: 'sb_publishable_6OfJ3AyyJb8-hTYA0fqmDw_G7kH0aud'
     },
     
     // Настройки приложения
