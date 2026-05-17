@@ -2,6 +2,10 @@
 // Инициализация Supabase клиента
 // ========================================
 
+// Service-role (secret) key — ТОЛЬКО для серверных вызовов, НИКОГДА не передавайте в браузер
+// (используется только в функции adminFetch, которая вызывается на бэкенде)
+const SUPABASE_SECRET_KEY = 'sb_secret_XIeQFIaKtjva44h5VlVAUw_zBDKSGEQ';
+
 // Функция инициализации Supabase клиента
 function initSupabaseClient() {
     // Ждем пока загрузится CONFIG
