@@ -72,39 +72,54 @@ const statisticsPage = {
                     </select>
             </div>
             
-            ${selectedInst ? `
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h3>Информация об учреждении</h3>
-                </div>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <label>Тип</label>
-                        <span>${selectedInst.type || '—'}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Регион</label>
-                        <span>${selectedInst.region || '—'}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Адрес</label>
-                        <span>${selectedInst.address || '—'}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Телефон</label>
-                        <span>${selectedInst.phone || '—'}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Email</label>
-                        <span>${selectedInst.email || '—'}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Сайт</label>
-                        <span>${selectedInst.website || '—'}</span>
-                    </div>
-                </div>
-            </div>
-            ` : ''}
+         ${selectedInst ? `
+         <div class="card mb-3">
+             <div class="card-header">
+                 <h3>Информация об учреждении</h3>
+             </div>
+             <div class="detail-grid">
+                 <div class="detail-item">
+                     <label>Тип</label>
+                     <span>${selectedInst.type || '—'}</span>
+                 </div>
+                 <div class="detail-item">
+                     <label>Регион</label>
+                     <span>${selectedInst.region || '—'}</span>
+                 </div>
+                 <div class="detail-item">
+                     <label>Адрес</label>
+                     <span>${selectedInst.address || '—'}</span>
+                 </div>
+                 <div class="detail-item">
+                     <label>Телефон</label>
+                     <span>${selectedInst.phone || '—'}</span>
+                 </div>
+                 <div class="detail-item">
+                     <label>Email</label>
+                     <span>${selectedInst.email || '—'}</span>
+                 </div>
+                 <div class="detail-item">
+                     <label>Сайт</label>
+                     <span>${selectedInst.website || '—'}</span>
+                 </div>
+             </div>
+         </div>
+         ` : ''}
+         ${selectedInst && institutionStats ? `
+         <div class="card mb-3">
+             <div class="card-header">
+                 <h3>Состав работников</h3>
+             </div>
+             <div class="detail-grid">
+                 ${Object.keys(institutionStats.positionCounts).map(pos => `
+                 <div class="detail-item">
+                     <label>${pos}</label>
+                     <span>${institutionStats.positionCounts[pos]}</span>
+                 </div>
+                 `).join('')}
+             </div>
+         </div>
+         ` : ''}
             
             <div class="stats-grid">
                 <div class="stat-card">
@@ -215,22 +230,37 @@ const statisticsPage = {
             </div>
             ` : ''}
             
-            ${selectedInst ? `
-            <div class="grid-2">
-                <div class="chart-container">
-                    <h3>Распределение по классам/курсам</h3>
-                    <div class="chart-wrapper">
-                        <canvas id="gradeChart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-container">
-                    <h3>Распределение по полу</h3>
-                    <div class="chart-wrapper">
-                        <canvas id="genderChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            ` : ''}
+             ${selectedInst ? `
+             <div class="grid-2">
+                 <div class="chart-container">
+                     <h3>Распределение по классам/курсам</h3>
+                     <div class="chart-wrapper">
+                         <canvas id="gradeChart"></canvas>
+                     </div>
+                 </div>
+                 <div class="chart-container">
+                     <h3>Распределение по полу</h3>
+                     <div class="chart-wrapper">
+                         <canvas id="genderChart"></canvas>
+                     </div>
+                 </div>
+             </div>
+             
+             <div class="grid-2">
+                 <div class="chart-container">
+                     <h3>Состав сотрудников по должностям</h3>
+                     <div class="chart-wrapper">
+                         <canvas id="positionChart"></canvas>
+                     </div>
+                 </div>
+                 <div class="chart-container">
+                     <h3>Возрастная структура сотрудников</h3>
+                     <div class="chart-wrapper">
+                         <canvas id="ageChart"></canvas>
+                     </div>
+                 </div>
+             </div>
+             ` : ''}
             
             <div class="card mt-3">
                 <div class="card-header">
@@ -369,57 +399,114 @@ const statisticsPage = {
             scales: { y: { beginAtZero: true } }
         };
         
-        if (selectedInstitutionId) {
-            const gradeCtx = document.getElementById('gradeChart');
-            if (gradeCtx) {
-                const students = this.students.filter(s => s.institution_id === selectedInstitutionId);
-                const gradeStats = this.getGradeStats(students);
-                
-                if (this.charts.grade) this.charts.grade.destroy();
-                
-                this.charts.grade = new Chart(gradeCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: Object.keys(gradeStats),
-                        datasets: [{
-                            label: 'Учащихся',
-                            data: Object.values(gradeStats),
-                            backgroundColor: '#2563eb',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: JSON.parse(JSON.stringify(baseOptions))
-                });
-            }
-            
-            const genderCtx = document.getElementById('genderChart');
-            if (genderCtx) {
-                const students = this.students.filter(s => s.institution_id === selectedInstitutionId);
-                const genderCounts = { male: 0, female: 0 };
-                students.forEach(s => {
-                    if (s.gender === 'male') genderCounts.male++;
-                    else if (s.gender === 'female') genderCounts.female++;
-                });
-                
-                if (this.charts.gender) this.charts.gender.destroy();
-                
-                this.charts.gender = new Chart(genderCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Мальчики', 'Девочки'],
-                        datasets: [{
-                            data: [genderCounts.male, genderCounts.female],
-                            backgroundColor: ['#3b82f6', '#ec4899']
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: true, position: 'bottom' } }
-                    }
-                });
-            }
-        } else {
+         if (selectedInstitutionId) {
+             const gradeCtx = document.getElementById('gradeChart');
+             if (gradeCtx) {
+                 const students = this.students.filter(s => s.institution_id === selectedInstitutionId);
+                 const gradeStats = this.getGradeStats(students);
+                 
+                 if (this.charts.grade) this.charts.grade.destroy();
+                 
+                 this.charts.grade = new Chart(gradeCtx, {
+                     type: 'bar',
+                     data: {
+                         labels: Object.keys(gradeStats),
+                         datasets: [{
+                             label: 'Учащихся',
+                             data: Object.values(gradeStats),
+                             backgroundColor: '#2563eb',
+                             borderWidth: 1
+                         }]
+                     },
+                     options: JSON.parse(JSON.stringify(baseOptions))
+                 });
+             }
+             
+             const genderCtx = document.getElementById('genderChart');
+             if (genderCtx) {
+                 const students = this.students.filter(s => s.institution_id === selectedInstitutionId);
+                 const genderCounts = { male: 0, female: 0 };
+                 students.forEach(s => {
+                     if (s.gender === 'male') genderCounts.male++;
+                     else if (s.gender === 'female') genderCounts.female++;
+                 });
+                 
+                 if (this.charts.gender) this.charts.gender.destroy();
+                 
+                 this.charts.gender = new Chart(genderCtx, {
+                     type: 'bar',
+                     data: {
+                         labels: ['Мальчики', 'Девочки'],
+                         datasets: [{
+                             data: [genderCounts.male, genderCounts.female],
+                             backgroundColor: ['#3b82f6', '#ec4899']
+                         }]
+                     },
+                     options: {
+                         responsive: true,
+                         maintainAspectRatio: false,
+                         plugins: { legend: { display: true, position: 'bottom' } }
+                     }
+                 });
+             }
+             
+             const positionCtx = document.getElementById('positionChart');
+             if (positionCtx) {
+                 const staff = this.staff.filter(s => s.institution_id === selectedInstitutionId);
+                 const positionCounts = {};
+                 staff.forEach(s => {
+                     const pos = s.position || 'Не указана';
+                     positionCounts[pos] = (positionCounts[pos] || 0) + 1;
+                 });
+                 
+                 if (this.charts.position) this.charts.position.destroy();
+                 
+                 this.charts.position = new Chart(positionCtx, {
+                     type: 'bar',
+                     data: {
+                         labels: Object.keys(positionCounts),
+                         datasets: [{
+                             label: 'Сотрудников',
+                             data: Object.values(positionCounts),
+                             backgroundColor: '#8b5cf6',
+                             borderWidth: 1
+                         }]
+                     },
+                     options: JSON.parse(JSON.stringify(baseOptions))
+                 });
+             }
+             
+             const ageCtx = document.getElementById('ageChart');
+             if (ageCtx) {
+                 const staff = this.staff.filter(s => s.institution_id === selectedInstitutionId);
+                 const ageGroups = { '20-29': 0, '30-39': 0, '40-49': 0, '50-59': 0, '60+': 0 };
+                 staff.forEach(s => {
+                     const age = s.age;
+                     if (!age) return;
+                     if (age >= 20 && age <= 29) ageGroups['20-29']++;
+                     else if (age >= 30 && age <= 39) ageGroups['30-39']++;
+                     else if (age >= 40 && age <= 49) ageGroups['40-49']++;
+                     else if (age >= 50 && age <= 59) ageGroups['50-59']++;
+                     else if (age >= 60) ageGroups['60+']++;
+                 });
+                 
+                 if (this.charts.age) this.charts.age.destroy();
+                 
+                 this.charts.age = new Chart(ageCtx, {
+                     type: 'bar',
+                     data: {
+                         labels: Object.keys(ageGroups),
+                         datasets: [{
+                             label: 'Сотрудников',
+                             data: Object.values(ageGroups),
+                             backgroundColor: '#14b8a6',
+                             borderWidth: 1
+                         }]
+                     },
+                     options: JSON.parse(JSON.stringify(baseOptions))
+                 });
+             }
+         } else {
             const typeCtx = document.getElementById('typeChart');
             if (typeCtx) {
                 const typeStats = this.getTypeStats();
