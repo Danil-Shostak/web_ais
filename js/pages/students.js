@@ -230,14 +230,24 @@ const studentsPage = {
         document.getElementById('pageContent').innerHTML = html;
         
         if (totalPages > 1) {
-            paginator = new Paginator(filteredData.length, this.pageSize, (page, offset, limit) => {
-                this.currentPage = page;
-                this.render();
-            });
-            paginator.goToPage(this.currentPage);
-            paginator.render('pagination');
-        }
-    },
+    if (!this._paginator) {
+        this._paginator = new Paginator(filteredData.length, this.pageSize, (page) => {
+            if (this.currentPage === page) return;
+            this.currentPage = page;
+            this.render();
+        });
+    } else {
+        this._paginator.setTotalCount?.(filteredData.length); // если есть такой метод
+        this._paginator.setPageSize?.(this.pageSize);          // если есть такой метод
+    }
+
+    // Важно: НЕ goToPage() здесь
+    this._paginator.render('pagination');
+} else {
+    if (this._paginator) this._paginator = null;
+}
+    }
+    ,
     
     // Фильтрация данных
     filterData: function() {
