@@ -246,7 +246,6 @@ const studentsPage = {
     
     // Рендер пагинации
     renderPagination: function(totalCount) {
-        const self = this;
         const paginationContainer = document.getElementById('paginationContainer');
         
         if (!paginationContainer) return;
@@ -285,6 +284,12 @@ const studentsPage = {
     
     // Переход на страницу
     goToPage: function(page) {
+        // Защита от вызова до инициализации
+        if (!this || typeof this.filterData !== 'function') {
+            console.warn('studentsPage not ready yet');
+            return;
+        }
+        
         const filteredData = this.filterData();
         const totalPages = Math.ceil(filteredData.length / this.pageSize);
         
@@ -700,5 +705,17 @@ const studentsPage = {
     filters: {}
 };
 
-// Экспорт
-window.studentsPage = studentsPage;
+// Убеждаемся, что studentsPage доступен глобально
+if (typeof window !== 'undefined') {
+    window.studentsPage = studentsPage;
+}
+
+// Добавляем защиту от вызова до загрузки страницы
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        // Убеждаемся, что studentsPage доступен
+        if (!window.studentsPage) {
+            window.studentsPage = studentsPage;
+        }
+    });
+}
