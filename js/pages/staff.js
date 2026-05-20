@@ -8,6 +8,7 @@ const staffPage = {
     currentPage: 1,
     pageSize: 20,
     editingId: null,
+    paginator: null, // Добавляем свойство для хранения пагинатора
     
     // Загрузка страницы
     load: async function() {
@@ -18,6 +19,7 @@ const staffPage = {
             ]);
             this.data = staff;
             this.institutions = institutions;
+            this.currentPage = 1; // Сброс на первую страницу при загрузке
             this.render();
         } catch (error) {
             console.error('Error loading staff:', error);
@@ -62,7 +64,7 @@ const staffPage = {
                     <select id="institutionFilter" onchange="staffPage.applyFilters()">
                         <option value="">Все учреждения</option>
                         ${this.institutions.map(inst => `
-                            <option value="${inst.id}" ${this.filters.institution_id == inst.id ? 'selected' : ''}>${inst.name}</option>
+                            <option value="${inst.id}" ${this.filters.institution_id == inst.id ? 'selected' : ''}>${this.escapeHtml(inst.name)}</option>
                         `).join('')}
                     </select>
                 </div>
@@ -101,12 +103,12 @@ const staffPage = {
                                 return `
                                     <tr>
                                         <td>
-                                            <strong>${staff.full_name}</strong>
+                                            <strong>${this.escapeHtml(staff.full_name)}</strong>
                                         </td>
-                                        <td>${staff.position}</td>
-                                        <td>${institution ? truncateText(institution.name, 25) : '-'}</td>
+                                        <td>${this.escapeHtml(staff.position)}</td>
+                                        <td>${institution ? this.truncateText(institution.name, 25) : '-'}</td>
                                         <td>${formatDate(staff.hire_date)}</td>
-                                        <td>${staff.phone ? formatPhone(staff.phone) : '-'}</td>
+                                        <td>${staff.phone ? this.formatPhone(staff.phone) : '-'}</td>
                                         <td>
                                             <div class="table-actions">
                                                 <button class="btn-icon" onclick="staffPage.viewStaff('${staff.id}')" title="Просмотр">
@@ -145,9 +147,7 @@ const staffPage = {
                 </div>
                 
                 <!-- Пагинация -->
-                ${totalPages > 1 ? `
-                    <div class="pagination" id="pagination"></div>
-                ` : ''}
+                <div class="pagination" id="pagination"></div>
             </div>
             
             <!-- Модальное окно формы -->
@@ -187,7 +187,7 @@ const staffPage = {
                                     <label for="institution_id">Учреждение *</label>
                                     <select id="institution_id" required>
                                         <option value="">Выберите учреждение</option>
-                                        ${this.institutions.map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
+                                        ${this.institutions.map(i => `<option value="${i.id}">${this.escapeHtml(i.name)}</option>`).join('')}
                                     </select>
                                     <span class="error-message" id="institution_idError"></span>
                                 </div>
@@ -234,14 +234,36 @@ const staffPage = {
         
         document.getElementById('pageContent').innerHTML = html;
         
+        // Создаем пагинатор только если страниц больше 1
         if (totalPages > 1) {
-            paginator = new Paginator(filteredData.length, this.pageSize, (page, offset, limit) => {
-                this.currentPage = page;
-                this.render();
-            });
-            paginator.goToPage(this.currentPage);
-            paginator.render('pagination');
+            this.initPaginator(filteredData.length);
+        } else {
+            if (this.paginator) this.paginator = null;
         }
+    },
+    
+    // Инициализация пагинатора
+    initPaginator: function(totalCount) {
+        const self = this;
+        
+        // Если пагинатор уже существует, обновляем его параметры
+        if (this.paginator && typeof this.paginator.update === 'function') {
+            this.paginator.update(totalCount, this.pageSize);
+        } else {
+            // Создаем новый пагинатор с колбэком
+            this.paginator = new Paginator(
+                totalCount, 
+                this.pageSize, 
+                function(page) {
+                    if (self.currentPage === page) return;
+                    self.currentPage = page;
+                    self.render(); // Вызываем render только один раз при смене страницы
+                }
+            );
+        }
+        
+        // Рендерим пагинатор
+        this.paginator.render('pagination');
     },
     
     // Фильтрация данных
@@ -282,7 +304,7 @@ const staffPage = {
         document.getElementById('staffForm').reset();
         document.getElementById('staffId').value = '';
         document.getElementById('formModal').classList.add('active');
-        clearValidationStyles();
+        this.clearValidationStyles();
     },
     
     // Редактирование
@@ -304,12 +326,13 @@ const staffPage = {
         document.getElementById('email').value = staff.email || '';
         
         document.getElementById('formModal').classList.add('active');
-        clearValidationStyles();
+        this.clearValidationStyles();
     },
     
     // Закрыть форму
     closeForm: function() {
-        document.getElementById('formModal').classList.remove('active');
+        const modal = document.getElementById('formModal');
+        if (modal) modal.classList.remove('active');
         this.editingId = null;
     },
     
@@ -354,9 +377,9 @@ const staffPage = {
             email: document.getElementById('email').value.trim() || null
         };
         
-        const validation = validateStaffForm(formData);
+        const validation = this.validateStaffForm(formData);
         if (!validation.valid) {
-            displayValidationErrors(validation.errors);
+            this.displayValidationErrors(validation.errors);
             return;
         }
         
@@ -408,15 +431,15 @@ const staffPage = {
                 <div class="detail-grid">
                     <div class="detail-item">
                         <label>ФИО</label>
-                        <span>${escapeHtml(staff.full_name)}</span>
+                        <span>${this.escapeHtml(staff.full_name)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Должность</label>
-                        <span>${escapeHtml(staff.position)}</span>
+                        <span>${this.escapeHtml(staff.position)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Учреждение</label>
-                        <span>${institution ? escapeHtml(institution.name) : '-'}</span>
+                        <span>${institution ? this.escapeHtml(institution.name) : '-'}</span>
                     </div>
                     <div class="detail-item">
                         <label>Дата приема</label>
@@ -424,19 +447,19 @@ const staffPage = {
                     </div>
                     <div class="detail-item">
                         <label>Образование</label>
-                        <span>${escapeHtml(staff.education || '-')}</span>
+                        <span>${this.escapeHtml(staff.education || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <label>Специальность</label>
-                        <span>${escapeHtml(staff.specialty || '-')}</span>
+                        <span>${this.escapeHtml(staff.specialty || '-')}</span>
                     </div>
                     <div class="detail-item">
                         <label>Телефон</label>
-                        <span>${staff.phone ? formatPhone(staff.phone) : '-'}</span>
+                        <span>${staff.phone ? this.formatPhone(staff.phone) : '-'}</span>
                     </div>
                     <div class="detail-item">
                         <label>Email</label>
-                        <span>${escapeHtml(staff.email || '-')}</span>
+                        <span>${this.escapeHtml(staff.email || '-')}</span>
                     </div>
                 </div>
             </div>
@@ -449,12 +472,104 @@ const staffPage = {
         if (canAccess('staff.edit')) {
             buttons.unshift({
                 label: 'Редактировать',
-                onclick: `staffPage.edit('${id}')`,
+                onclick: `staffPage.edit('${id}'); closeModal();`,
                 class: 'btn-primary'
             });
         }
         
         showModal(staff.full_name, content, buttons);
+    },
+    
+    // Вспомогательные методы
+    escapeHtml: function(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    },
+    
+    truncateText: function(str, length) {
+        if (!str) return '';
+        if (str.length <= length) return str;
+        return str.substring(0, length) + '...';
+    },
+    
+    formatPhone: function(phone) {
+        if (!phone) return '';
+        // Простое форматирование, можно улучшить при необходимости
+        return phone;
+    },
+    
+    validateStaffForm: function(data) {
+        const errors = {};
+        
+        if (!data.full_name || data.full_name.trim() === '') {
+            errors.full_name = 'ФИО обязательно для заполнения';
+        } else if (data.full_name.length < 3) {
+            errors.full_name = 'ФИО должно содержать минимум 3 символа';
+        }
+        
+        if (!data.position) {
+            errors.position = 'Выберите должность';
+        }
+        
+        if (!data.institution_id) {
+            errors.institution_id = 'Выберите учреждение';
+        }
+        
+        if (!data.hire_date) {
+            errors.hire_date = 'Дата приема обязательна';
+        }
+        
+        if (data.phone) {
+            const phoneRegex = /^[\+\d\s\-\(\)]+$/;
+            if (!phoneRegex.test(data.phone)) {
+                errors.phone = 'Введите корректный номер телефона';
+            }
+        }
+        
+        if (data.email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(data.email)) {
+                errors.email = 'Введите корректный email адрес';
+            }
+        }
+        
+        return {
+            valid: Object.keys(errors).length === 0,
+            errors: errors
+        };
+    },
+    
+    displayValidationErrors: function(errors) {
+        // Очищаем предыдущие ошибки
+        this.clearValidationStyles();
+        
+        // Показываем новые ошибки
+        for (const [field, message] of Object.entries(errors)) {
+            const errorSpan = document.getElementById(`${field}Error`);
+            const input = document.getElementById(field);
+            
+            if (errorSpan) {
+                errorSpan.textContent = message;
+            }
+            if (input) {
+                input.classList.add('error');
+            }
+        }
+    },
+    
+    clearValidationStyles: function() {
+        // Очищаем все сообщения об ошибках
+        const errorSpans = document.querySelectorAll('.error-message');
+        errorSpans.forEach(span => span.textContent = '');
+        
+        // Убираем класс error со всех полей
+        const errorInputs = document.querySelectorAll('.error');
+        errorInputs.forEach(input => input.classList.remove('error'));
     }
 };
 
