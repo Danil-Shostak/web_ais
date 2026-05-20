@@ -8,24 +8,30 @@ const studentsPage = {
     currentPage: 1,
     pageSize: 20,
     editingId: null,
-    paginator: null, // Добавляем свойство для хранения пагинатора
+    isLoading: false,
     
     // Загрузка страницы
     load: async function() {
+        if (this.isLoading) return;
+        this.isLoading = true;
+        
         try {
             const [students, institutions] = await Promise.all([
                 api.getStudents({ limit: 1000 }),
                 api.getInstitutions({ limit: 1000 })
             ]);
-            this.data = students;
-            this.institutions = institutions;
-            this.currentPage = 1; // Сброс на первую страницу при загрузке
+            this.data = students || [];
+            this.institutions = institutions || [];
+            this.currentPage = 1;
+            this.filters = {};
             this.render();
         } catch (error) {
             console.error('Error loading students:', error);
             this.data = [];
             this.institutions = [];
             this.render();
+        } finally {
+            this.isLoading = false;
         }
     },
     
@@ -43,7 +49,7 @@ const studentsPage = {
                         <h1>Учащиеся</h1>
                         <p>Управление списком учащихся</p>
                     </div>
-                    ${canAccess('students.edit') ? `
+                    ${window.canAccess && canAccess('students.edit') ? `
                         <button class="btn-primary" onclick="studentsPage.showAddForm()">
                             + Добавить учащегося
                         </button>
@@ -56,7 +62,7 @@ const studentsPage = {
                 <div class="filter-group">
                     <label>Поиск</label>
                     <input type="text" id="searchInput" placeholder="ФИО учащегося..." 
-                           value="${this.filters.search || ''}" 
+                           value="${this.escapeHtml(this.filters.search || '')}" 
                            onchange="studentsPage.applyFilters()">
                 </div>
                 <div class="filter-group">
@@ -82,7 +88,7 @@ const studentsPage = {
             <!-- Таблица -->
             <div class="card">
                 <div class="table-container">
-                    <table>
+                    <table class="data-table">
                         <thead>
                             <tr>
                                 <th>ФИО</th>
@@ -109,7 +115,7 @@ const studentsPage = {
                                         <td>
                                             <strong>${this.escapeHtml(student.full_name)}</strong>
                                         </td>
-                                        <td>${formatDate(student.birth_date)}</td>
+                                        <td>${this.formatDate(student.birth_date)}</td>
                                         <td>${institution ? this.truncateText(institution.name, 25) : '-'}</td>
                                         <td>${gradeDisplay}</td>
                                         <td>${this.truncateText(student.address, 25) || '-'}</td>
@@ -121,7 +127,7 @@ const studentsPage = {
                                                         <circle cx="12" cy="12" r="3"></circle>
                                                     </svg>
                                                 </button>
-                                                ${canAccess('students.edit') ? `
+                                                ${window.canAccess && canAccess('students.edit') ? `
                                                     <button class="btn-icon" onclick="studentsPage.edit('${student.id}')" title="Редактировать">
                                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -151,7 +157,7 @@ const studentsPage = {
                 </div>
                 
                 <!-- Пагинация -->
-                <div class="pagination" id="pagination"></div>
+                <div class="pagination" id="paginationContainer"></div>
             </div>
             
             <!-- Модальное окно формы -->
@@ -229,52 +235,79 @@ const studentsPage = {
         
         document.getElementById('pageContent').innerHTML = html;
         
-        // Создаем пагинатор только если страниц больше 1
+        // Создаем пагинацию только если страниц больше 1
         if (totalPages > 1) {
-            this.initPaginator(filteredData.length);
+            this.renderPagination(filteredData.length);
         } else {
-            if (this.paginator) this.paginator = null;
+            const paginationContainer = document.getElementById('paginationContainer');
+            if (paginationContainer) paginationContainer.innerHTML = '';
         }
     },
     
-    // Инициализация пагинатора
-    initPaginator: function(totalCount) {
+    // Рендер пагинации
+    renderPagination: function(totalCount) {
         const self = this;
+        const paginationContainer = document.getElementById('paginationContainer');
         
-        // Если пагинатор уже существует, обновляем его параметры
-        if (this.paginator && typeof this.paginator.update === 'function') {
-            this.paginator.update(totalCount, this.pageSize);
-        } else {
-            // Создаем новый пагинатор с колбэком
-            this.paginator = new Paginator(
-                totalCount, 
-                this.pageSize, 
-                function(page) {
-                    if (self.currentPage === page) return;
-                    self.currentPage = page;
-                    self.render(); // Вызываем render только один раз при смене страницы
-                }
-            );
+        if (!paginationContainer) return;
+        
+        const totalPages = Math.ceil(totalCount / this.pageSize);
+        let startPage = Math.max(1, this.currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
         }
         
-        // Рендерим пагинатор
-        this.paginator.render('pagination');
+        let paginationHtml = '<div class="pagination-controls">';
+        
+        // Кнопка "Первая"
+        paginationHtml += `<button class="page-btn" onclick="studentsPage.goToPage(1)" ${this.currentPage === 1 ? 'disabled' : ''}>«</button>`;
+        
+        // Кнопка "Предыдущая"
+        paginationHtml += `<button class="page-btn" onclick="studentsPage.goToPage(${this.currentPage - 1})" ${this.currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+        
+        // Номера страниц
+        for (let i = startPage; i <= endPage; i++) {
+            paginationHtml += `<button class="page-btn ${i === this.currentPage ? 'active' : ''}" onclick="studentsPage.goToPage(${i})">${i}</button>`;
+        }
+        
+        // Кнопка "Следующая"
+        paginationHtml += `<button class="page-btn" onclick="studentsPage.goToPage(${this.currentPage + 1})" ${this.currentPage === totalPages ? 'disabled' : ''}>›</button>`;
+        
+        // Кнопка "Последняя"
+        paginationHtml += `<button class="page-btn" onclick="studentsPage.goToPage(${totalPages})" ${this.currentPage === totalPages ? 'disabled' : ''}>»</button>`;
+        
+        paginationHtml += '</div>';
+        
+        paginationContainer.innerHTML = paginationHtml;
+    },
+    
+    // Переход на страницу
+    goToPage: function(page) {
+        const filteredData = this.filterData();
+        const totalPages = Math.ceil(filteredData.length / this.pageSize);
+        
+        if (page < 1 || page > totalPages || page === this.currentPage) return;
+        
+        this.currentPage = page;
+        this.render();
     },
     
     // Фильтрация данных
     filterData: function() {
         let filtered = [...this.data];
         
-        if (this.filters.search) {
+        if (this.filters && this.filters.search) {
             const search = this.filters.search.toLowerCase();
-            filtered = filtered.filter(s => s.full_name.toLowerCase().includes(search));
+            filtered = filtered.filter(s => s.full_name && s.full_name.toLowerCase().includes(search));
         }
         
-        if (this.filters.institution_id) {
+        if (this.filters && this.filters.institution_id) {
             filtered = filtered.filter(s => s.institution_id == this.filters.institution_id);
         }
         
-        if (this.filters.grade) {
+        if (this.filters && this.filters.grade) {
             filtered = filtered.filter(s => s.grade == this.filters.grade);
         }
         
@@ -284,9 +317,9 @@ const studentsPage = {
     // Применение фильтров
     applyFilters: function() {
         this.filters = {
-            search: document.getElementById('searchInput').value,
-            institution_id: document.getElementById('institutionFilter').value,
-            grade: document.getElementById('gradeFilter').value
+            search: document.getElementById('searchInput') ? document.getElementById('searchInput').value : '',
+            institution_id: document.getElementById('institutionFilter') ? document.getElementById('institutionFilter').value : '',
+            grade: document.getElementById('gradeFilter') ? document.getElementById('gradeFilter').value : ''
         };
         this.currentPage = 1;
         this.render();
@@ -295,10 +328,15 @@ const studentsPage = {
     // Показать форму добавления
     showAddForm: function() {
         this.editingId = null;
-        document.getElementById('formModalTitle').textContent = 'Добавить учащегося';
-        document.getElementById('studentForm').reset();
-        document.getElementById('studentId').value = '';
-        document.getElementById('formModal').classList.add('active');
+        const titleEl = document.getElementById('formModalTitle');
+        const formEl = document.getElementById('studentForm');
+        const idEl = document.getElementById('studentId');
+        const modalEl = document.getElementById('formModal');
+        
+        if (titleEl) titleEl.textContent = 'Добавить учащегося';
+        if (formEl) formEl.reset();
+        if (idEl) idEl.value = '';
+        if (modalEl) modalEl.classList.add('active');
         this.clearValidationStyles();
     },
     
@@ -308,15 +346,26 @@ const studentsPage = {
         if (!student) return;
         
         this.editingId = id;
-        document.getElementById('formModalTitle').textContent = 'Редактировать учащегося';
+        const titleEl = document.getElementById('formModalTitle');
+        const idEl = document.getElementById('studentId');
+        const modalEl = document.getElementById('formModal');
         
-        document.getElementById('studentId').value = id;
-        document.getElementById('full_name').value = student.full_name || '';
-        document.getElementById('birth_date').value = student.birth_date || '';
-        document.getElementById('gender').value = student.gender || '';
-        document.getElementById('institution_id').value = student.institution_id || '';
-        document.getElementById('address').value = student.address || '';
-        document.getElementById('parent_phone').value = student.parent_phone || '';
+        if (titleEl) titleEl.textContent = 'Редактировать учащегося';
+        if (idEl) idEl.value = id;
+        
+        const fullNameEl = document.getElementById('full_name');
+        const birthDateEl = document.getElementById('birth_date');
+        const genderEl = document.getElementById('gender');
+        const institutionIdEl = document.getElementById('institution_id');
+        const addressEl = document.getElementById('address');
+        const parentPhoneEl = document.getElementById('parent_phone');
+        
+        if (fullNameEl) fullNameEl.value = student.full_name || '';
+        if (birthDateEl) birthDateEl.value = student.birth_date || '';
+        if (genderEl) genderEl.value = student.gender || '';
+        if (institutionIdEl) institutionIdEl.value = student.institution_id || '';
+        if (addressEl) addressEl.value = student.address || '';
+        if (parentPhoneEl) parentPhoneEl.value = student.parent_phone || '';
         
         // Сначала обновляем поле класса/курса на основе учреждения
         this.updateGradeField();
@@ -325,27 +374,29 @@ const studentsPage = {
         const gradeSelect = document.getElementById('grade');
         const gradeValue = student.grade || '';
         
-        // Проверяем, есть ли такое значение в select
-        let valueExists = false;
-        for (let i = 0; i < gradeSelect.options.length; i++) {
-            if (gradeSelect.options[i].value == gradeValue) {
-                valueExists = true;
-                break;
+        if (gradeSelect) {
+            // Проверяем, есть ли такое значение в select
+            let valueExists = false;
+            for (let i = 0; i < gradeSelect.options.length; i++) {
+                if (gradeSelect.options[i].value == gradeValue) {
+                    valueExists = true;
+                    break;
+                }
+            }
+            
+            if (valueExists) {
+                gradeSelect.value = gradeValue;
+            } else if (gradeValue) {
+                // Если значения нет, добавляем его как опцию
+                const option = document.createElement('option');
+                option.value = gradeValue;
+                option.textContent = gradeValue;
+                gradeSelect.appendChild(option);
+                gradeSelect.value = gradeValue;
             }
         }
         
-        if (valueExists) {
-            gradeSelect.value = gradeValue;
-        } else if (gradeValue) {
-            // Если значения нет, добавляем его как опцию
-            const option = document.createElement('option');
-            option.value = gradeValue;
-            option.textContent = gradeValue;
-            gradeSelect.appendChild(option);
-            gradeSelect.value = gradeValue;
-        }
-        
-        document.getElementById('formModal').classList.add('active');
+        if (modalEl) modalEl.classList.add('active');
         this.clearValidationStyles();
     },
     
@@ -359,6 +410,8 @@ const studentsPage = {
     // Обновление поля класса/курса при выборе учреждения
     updateGradeField: function() {
         const institutionSelect = document.getElementById('institution_id');
+        if (!institutionSelect) return;
+        
         const selectedOption = institutionSelect.options[institutionSelect.selectedIndex];
         const institutionType = selectedOption ? selectedOption.getAttribute('data-type') || '' : '';
         
@@ -403,18 +456,20 @@ const studentsPage = {
         
         try {
             await api.deleteStudent(id);
-            showNotification('success', 'Учащийся удален');
+            if (window.showNotification) showNotification('success', 'Учащийся удален');
             
-            await api.createLog({
-                user_id: currentUser.id,
-                action: 'delete',
-                details: `Удален учащийся: ${student.full_name}`
-            });
+            if (window.api && window.api.createLog && window.currentUser) {
+                await api.createLog({
+                    user_id: currentUser.id,
+                    action: 'delete',
+                    details: `Удален учащийся: ${student.full_name}`
+                });
+            }
             
             await this.load();
         } catch (error) {
             console.error('Error deleting student:', error);
-            showNotification('error', 'Ошибка удаления учащегося');
+            if (window.showNotification) showNotification('error', 'Ошибка удаления учащегося');
         }
     },
     
@@ -435,13 +490,13 @@ const studentsPage = {
         }
         
         const formData = {
-            full_name: document.getElementById('full_name').value.trim(),
-            birth_date: document.getElementById('birth_date').value,
-            gender: document.getElementById('gender').value,
-            institution_id: document.getElementById('institution_id').value,
+            full_name: document.getElementById('full_name') ? document.getElementById('full_name').value.trim() : '',
+            birth_date: document.getElementById('birth_date') ? document.getElementById('birth_date').value : '',
+            gender: document.getElementById('gender') ? document.getElementById('gender').value : '',
+            institution_id: document.getElementById('institution_id') ? document.getElementById('institution_id').value : '',
             grade: grade,
-            address: document.getElementById('address').value.trim() || null,
-            parent_phone: document.getElementById('parent_phone').value.trim() || null
+            address: document.getElementById('address') ? document.getElementById('address').value.trim() || null : null,
+            parent_phone: document.getElementById('parent_phone') ? document.getElementById('parent_phone').value.trim() || null : null
         };
         
         const validation = this.validateStudentForm(formData);
@@ -453,22 +508,26 @@ const studentsPage = {
         try {
             if (this.editingId) {
                 await api.updateStudent(this.editingId, formData);
-                showNotification('success', 'Учащийся обновлен');
+                if (window.showNotification) showNotification('success', 'Учащийся обновлен');
                 
-                await api.createLog({
-                    user_id: currentUser.id,
-                    action: 'update',
-                    details: `Обновлен учащийся: ${formData.full_name}`
-                });
+                if (window.api && window.api.createLog && window.currentUser) {
+                    await api.createLog({
+                        user_id: currentUser.id,
+                        action: 'update',
+                        details: `Обновлен учащийся: ${formData.full_name}`
+                    });
+                }
             } else {
                 await api.createStudent(formData);
-                showNotification('success', 'Учащийся добавлен');
+                if (window.showNotification) showNotification('success', 'Учащийся добавлен');
                 
-                await api.createLog({
-                    user_id: currentUser.id,
-                    action: 'create',
-                    details: `Добавлен учащийся: ${formData.full_name}`
-                });
+                if (window.api && window.api.createLog && window.currentUser) {
+                    await api.createLog({
+                        user_id: currentUser.id,
+                        action: 'create',
+                        details: `Добавлен учащийся: ${formData.full_name}`
+                    });
+                }
             }
             
             this.closeForm();
@@ -476,7 +535,7 @@ const studentsPage = {
             
         } catch (error) {
             console.error('Error saving student:', error);
-            showNotification('error', 'Ошибка сохранения учащегося');
+            if (window.showNotification) showNotification('error', 'Ошибка сохранения учащегося');
         }
     },
     
@@ -484,7 +543,7 @@ const studentsPage = {
     viewStudent: async function(id) {
         const student = this.data.find(s => s.id === id);
         if (!student) {
-            showNotification('error', 'Учащийся не найден');
+            if (window.showNotification) showNotification('error', 'Учащийся не найден');
             return;
         }
         
@@ -500,7 +559,7 @@ const studentsPage = {
                     </div>
                     <div class="detail-item">
                         <label>Дата рождения</label>
-                        <span>${formatDate(student.birth_date)}</span>
+                        <span>${this.formatDate(student.birth_date)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Пол</label>
@@ -527,24 +586,37 @@ const studentsPage = {
         `;
         
         const buttons = [
-            { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-secondary' }
+            { label: 'Закрыть', onclick: 'window.closeModal && closeModal()', class: 'btn-secondary' }
         ];
         
-        if (canAccess('students.edit')) {
+        if (window.canAccess && canAccess('students.edit')) {
             buttons.unshift({
                 label: 'Редактировать',
-                onclick: `studentsPage.edit('${id}'); closeModal();`,
+                onclick: `studentsPage.edit('${id}'); window.closeModal && closeModal();`,
                 class: 'btn-primary'
             });
         }
         
-        showModal(student.full_name, content, buttons);
+        if (window.showModal) {
+            showModal(student.full_name, content, buttons);
+        }
+    },
+    
+    // Форматирование даты
+    formatDate: function(dateStr) {
+        if (!dateStr) return '-';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('ru-RU');
+        } catch (e) {
+            return dateStr;
+        }
     },
     
     // Вспомогательные методы
     escapeHtml: function(str) {
         if (!str) return '';
-        return str
+        return String(str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -560,7 +632,6 @@ const studentsPage = {
     
     formatPhone: function(phone) {
         if (!phone) return '';
-        // Простое форматирование, можно улучшить при необходимости
         return phone;
     },
     
@@ -603,10 +674,8 @@ const studentsPage = {
     },
     
     displayValidationErrors: function(errors) {
-        // Очищаем предыдущие ошибки
         this.clearValidationStyles();
         
-        // Показываем новые ошибки
         for (const [field, message] of Object.entries(errors)) {
             const errorSpan = document.getElementById(`${field}Error`);
             const input = document.getElementById(field);
@@ -621,11 +690,9 @@ const studentsPage = {
     },
     
     clearValidationStyles: function() {
-        // Очищаем все сообщения об ошибках
         const errorSpans = document.querySelectorAll('.error-message');
         errorSpans.forEach(span => span.textContent = '');
         
-        // Убираем класс error со всех полей
         const errorInputs = document.querySelectorAll('.error');
         errorInputs.forEach(input => input.classList.remove('error'));
     },
