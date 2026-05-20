@@ -8,24 +8,31 @@ const staffPage = {
     currentPage: 1,
     pageSize: 20,
     editingId: null,
-    paginator: null, // Добавляем свойство для хранения пагинатора
+    paginator: null,
+    isLoading: false, // Флаг для предотвращения множественных вызовов
     
     // Загрузка страницы
     load: async function() {
+        if (this.isLoading) return;
+        this.isLoading = true;
+        
         try {
             const [staff, institutions] = await Promise.all([
                 api.getStaff({ limit: 1000 }),
                 api.getInstitutions({ limit: 1000 })
             ]);
-            this.data = staff;
-            this.institutions = institutions;
-            this.currentPage = 1; // Сброс на первую страницу при загрузке
+            this.data = staff || [];
+            this.institutions = institutions || [];
+            this.currentPage = 1;
+            this.filters = {}; // Сброс фильтров
             this.render();
         } catch (error) {
             console.error('Error loading staff:', error);
             this.data = [];
             this.institutions = [];
             this.render();
+        } finally {
+            this.isLoading = false;
         }
     },
     
@@ -43,7 +50,7 @@ const staffPage = {
                         <h1>Работники</h1>
                         <p>Управление списком работников учреждений образования</p>
                     </div>
-                    ${canAccess('staff.edit') ? `
+                    ${window.canAccess && canAccess('staff.edit') ? `
                         <button class="btn-primary" onclick="staffPage.showAddForm()">
                             + Добавить работника
                         </button>
@@ -56,7 +63,7 @@ const staffPage = {
                 <div class="filter-group">
                     <label>Поиск</label>
                     <input type="text" id="searchInput" placeholder="ФИО работника..." 
-                           value="${this.filters.search || ''}" 
+                           value="${this.escapeHtml(this.filters.search || '')}" 
                            onchange="staffPage.applyFilters()">
                 </div>
                 <div class="filter-group">
@@ -86,7 +93,7 @@ const staffPage = {
             <!-- Таблица -->
             <div class="card">
                 <div class="table-container">
-                    <table>
+                    <table class="data-table">
                         <thead>
                             <tr>
                                 <th>ФИО</th>
@@ -107,7 +114,7 @@ const staffPage = {
                                         </td>
                                         <td>${this.escapeHtml(staff.position)}</td>
                                         <td>${institution ? this.truncateText(institution.name, 25) : '-'}</td>
-                                        <td>${formatDate(staff.hire_date)}</td>
+                                        <td>${this.formatDate(staff.hire_date)}</td>
                                         <td>${staff.phone ? this.formatPhone(staff.phone) : '-'}</td>
                                         <td>
                                             <div class="table-actions">
@@ -117,7 +124,7 @@ const staffPage = {
                                                         <circle cx="12" cy="12" r="3"></circle>
                                                     </svg>
                                                 </button>
-                                                ${canAccess('staff.edit') ? `
+                                                ${window.canAccess && canAccess('staff.edit') ? `
                                                     <button class="btn-icon" onclick="staffPage.edit('${staff.id}')" title="Редактировать">
                                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -147,7 +154,7 @@ const staffPage = {
                 </div>
                 
                 <!-- Пагинация -->
-                <div class="pagination" id="pagination"></div>
+                <div class="pagination" id="paginationContainer"></div>
             </div>
             
             <!-- Модальное окно формы -->
@@ -236,50 +243,79 @@ const staffPage = {
         
         // Создаем пагинатор только если страниц больше 1
         if (totalPages > 1) {
-            this.initPaginator(filteredData.length);
+            this.renderPagination(filteredData.length);
         } else {
-            if (this.paginator) this.paginator = null;
+            const paginationContainer = document.getElementById('paginationContainer');
+            if (paginationContainer) paginationContainer.innerHTML = '';
+            this.paginator = null;
         }
     },
     
-    // Инициализация пагинатора
-    initPaginator: function(totalCount) {
+    // Рендер пагинации (без вызова render)
+    renderPagination: function(totalCount) {
         const self = this;
+        const paginationContainer = document.getElementById('paginationContainer');
         
-        // Если пагинатор уже существует, обновляем его параметры
-        if (this.paginator && typeof this.paginator.update === 'function') {
-            this.paginator.update(totalCount, this.pageSize);
-        } else {
-            // Создаем новый пагинатор с колбэком
-            this.paginator = new Paginator(
-                totalCount, 
-                this.pageSize, 
-                function(page) {
-                    if (self.currentPage === page) return;
-                    self.currentPage = page;
-                    self.render(); // Вызываем render только один раз при смене страницы
-                }
-            );
+        if (!paginationContainer) return;
+        
+        // Создаем HTML пагинации вручную, чтобы избежать рекурсии
+        const totalPages = Math.ceil(totalCount / this.pageSize);
+        let startPage = Math.max(1, this.currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
         }
         
-        // Рендерим пагинатор
-        this.paginator.render('pagination');
+        let paginationHtml = '<div class="pagination-controls">';
+        
+        // Кнопка "Первая"
+        paginationHtml += `<button class="page-btn" onclick="staffPage.goToPage(1)" ${this.currentPage === 1 ? 'disabled' : ''}>«</button>`;
+        
+        // Кнопка "Предыдущая"
+        paginationHtml += `<button class="page-btn" onclick="staffPage.goToPage(${this.currentPage - 1})" ${this.currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+        
+        // Номера страниц
+        for (let i = startPage; i <= endPage; i++) {
+            paginationHtml += `<button class="page-btn ${i === this.currentPage ? 'active' : ''}" onclick="staffPage.goToPage(${i})">${i}</button>`;
+        }
+        
+        // Кнопка "Следующая"
+        paginationHtml += `<button class="page-btn" onclick="staffPage.goToPage(${this.currentPage + 1})" ${this.currentPage === totalPages ? 'disabled' : ''}>›</button>`;
+        
+        // Кнопка "Последняя"
+        paginationHtml += `<button class="page-btn" onclick="staffPage.goToPage(${totalPages})" ${this.currentPage === totalPages ? 'disabled' : ''}>»</button>`;
+        
+        paginationHtml += '</div>';
+        
+        paginationContainer.innerHTML = paginationHtml;
+    },
+    
+    // Переход на страницу
+    goToPage: function(page) {
+        const filteredData = this.filterData();
+        const totalPages = Math.ceil(filteredData.length / this.pageSize);
+        
+        if (page < 1 || page > totalPages || page === this.currentPage) return;
+        
+        this.currentPage = page;
+        this.render(); // Только один вызов render
     },
     
     // Фильтрация данных
     filterData: function() {
         let filtered = [...this.data];
         
-        if (this.filters.search) {
+        if (this.filters && this.filters.search) {
             const search = this.filters.search.toLowerCase();
-            filtered = filtered.filter(s => s.full_name.toLowerCase().includes(search));
+            filtered = filtered.filter(s => s.full_name && s.full_name.toLowerCase().includes(search));
         }
         
-        if (this.filters.institution_id) {
+        if (this.filters && this.filters.institution_id) {
             filtered = filtered.filter(s => s.institution_id == this.filters.institution_id);
         }
         
-        if (this.filters.position) {
+        if (this.filters && this.filters.position) {
             filtered = filtered.filter(s => s.position === this.filters.position);
         }
         
@@ -289,9 +325,9 @@ const staffPage = {
     // Применение фильтров
     applyFilters: function() {
         this.filters = {
-            search: document.getElementById('searchInput').value,
-            institution_id: document.getElementById('institutionFilter').value,
-            position: document.getElementById('positionFilter').value
+            search: document.getElementById('searchInput') ? document.getElementById('searchInput').value : '',
+            institution_id: document.getElementById('institutionFilter') ? document.getElementById('institutionFilter').value : '',
+            position: document.getElementById('positionFilter') ? document.getElementById('positionFilter').value : ''
         };
         this.currentPage = 1;
         this.render();
@@ -300,10 +336,15 @@ const staffPage = {
     // Показать форму добавления
     showAddForm: function() {
         this.editingId = null;
-        document.getElementById('formModalTitle').textContent = 'Добавить работника';
-        document.getElementById('staffForm').reset();
-        document.getElementById('staffId').value = '';
-        document.getElementById('formModal').classList.add('active');
+        const titleEl = document.getElementById('formModalTitle');
+        const formEl = document.getElementById('staffForm');
+        const idEl = document.getElementById('staffId');
+        const modalEl = document.getElementById('formModal');
+        
+        if (titleEl) titleEl.textContent = 'Добавить работника';
+        if (formEl) formEl.reset();
+        if (idEl) idEl.value = '';
+        if (modalEl) modalEl.classList.add('active');
         this.clearValidationStyles();
     },
     
@@ -313,19 +354,32 @@ const staffPage = {
         if (!staff) return;
         
         this.editingId = id;
-        document.getElementById('formModalTitle').textContent = 'Редактировать работника';
+        const titleEl = document.getElementById('formModalTitle');
+        const idEl = document.getElementById('staffId');
+        const modalEl = document.getElementById('formModal');
         
-        document.getElementById('staffId').value = id;
-        document.getElementById('full_name').value = staff.full_name || '';
-        document.getElementById('position').value = staff.position || '';
-        document.getElementById('institution_id').value = staff.institution_id || '';
-        document.getElementById('hire_date').value = staff.hire_date || '';
-        document.getElementById('education').value = staff.education || '';
-        document.getElementById('specialty').value = staff.specialty || '';
-        document.getElementById('phone').value = staff.phone || '';
-        document.getElementById('email').value = staff.email || '';
+        if (titleEl) titleEl.textContent = 'Редактировать работника';
+        if (idEl) idEl.value = id;
         
-        document.getElementById('formModal').classList.add('active');
+        const fullNameEl = document.getElementById('full_name');
+        const positionEl = document.getElementById('position');
+        const institutionIdEl = document.getElementById('institution_id');
+        const hireDateEl = document.getElementById('hire_date');
+        const educationEl = document.getElementById('education');
+        const specialtyEl = document.getElementById('specialty');
+        const phoneEl = document.getElementById('phone');
+        const emailEl = document.getElementById('email');
+        
+        if (fullNameEl) fullNameEl.value = staff.full_name || '';
+        if (positionEl) positionEl.value = staff.position || '';
+        if (institutionIdEl) institutionIdEl.value = staff.institution_id || '';
+        if (hireDateEl) hireDateEl.value = staff.hire_date || '';
+        if (educationEl) educationEl.value = staff.education || '';
+        if (specialtyEl) specialtyEl.value = staff.specialty || '';
+        if (phoneEl) phoneEl.value = staff.phone || '';
+        if (emailEl) emailEl.value = staff.email || '';
+        
+        if (modalEl) modalEl.classList.add('active');
         this.clearValidationStyles();
     },
     
@@ -347,18 +401,24 @@ const staffPage = {
         
         try {
             await api.deleteStaff(id);
-            showNotification('success', 'Работник удален');
+            if (window.showNotification) {
+                showNotification('success', 'Работник удален');
+            }
             
-            await api.createLog({
-                user_id: currentUser.id,
-                action: 'delete',
-                details: `Удален работник: ${staff.full_name}`
-            });
+            if (window.api && window.api.createLog && window.currentUser) {
+                await api.createLog({
+                    user_id: currentUser.id,
+                    action: 'delete',
+                    details: `Удален работник: ${staff.full_name}`
+                });
+            }
             
             await this.load();
         } catch (error) {
             console.error('Error deleting staff:', error);
-            showNotification('error', 'Ошибка удаления работника');
+            if (window.showNotification) {
+                showNotification('error', 'Ошибка удаления работника');
+            }
         }
     },
     
@@ -367,14 +427,14 @@ const staffPage = {
         event.preventDefault();
         
         const formData = {
-            full_name: document.getElementById('full_name').value.trim(),
-            position: document.getElementById('position').value,
-            institution_id: document.getElementById('institution_id').value,
-            hire_date: document.getElementById('hire_date').value,
-            education: document.getElementById('education').value.trim() || null,
-            specialty: document.getElementById('specialty').value.trim() || null,
-            phone: document.getElementById('phone').value.trim() || null,
-            email: document.getElementById('email').value.trim() || null
+            full_name: document.getElementById('full_name') ? document.getElementById('full_name').value.trim() : '',
+            position: document.getElementById('position') ? document.getElementById('position').value : '',
+            institution_id: document.getElementById('institution_id') ? document.getElementById('institution_id').value : '',
+            hire_date: document.getElementById('hire_date') ? document.getElementById('hire_date').value : '',
+            education: document.getElementById('education') ? document.getElementById('education').value.trim() || null : null,
+            specialty: document.getElementById('specialty') ? document.getElementById('specialty').value.trim() || null : null,
+            phone: document.getElementById('phone') ? document.getElementById('phone').value.trim() || null : null,
+            email: document.getElementById('email') ? document.getElementById('email').value.trim() || null : null
         };
         
         const validation = this.validateStaffForm(formData);
@@ -386,22 +446,26 @@ const staffPage = {
         try {
             if (this.editingId) {
                 await api.updateStaff(this.editingId, formData);
-                showNotification('success', 'Работник обновлен');
+                if (window.showNotification) showNotification('success', 'Работник обновлен');
                 
-                await api.createLog({
-                    user_id: currentUser.id,
-                    action: 'update',
-                    details: `Обновлен работник: ${formData.full_name}`
-                });
+                if (window.api && window.api.createLog && window.currentUser) {
+                    await api.createLog({
+                        user_id: currentUser.id,
+                        action: 'update',
+                        details: `Обновлен работник: ${formData.full_name}`
+                    });
+                }
             } else {
                 await api.createStaff(formData);
-                showNotification('success', 'Работник добавлен');
+                if (window.showNotification) showNotification('success', 'Работник добавлен');
                 
-                await api.createLog({
-                    user_id: currentUser.id,
-                    action: 'create',
-                    details: `Добавлен работник: ${formData.full_name}`
-                });
+                if (window.api && window.api.createLog && window.currentUser) {
+                    await api.createLog({
+                        user_id: currentUser.id,
+                        action: 'create',
+                        details: `Добавлен работник: ${formData.full_name}`
+                    });
+                }
             }
             
             this.closeForm();
@@ -409,7 +473,7 @@ const staffPage = {
             
         } catch (error) {
             console.error('Error saving staff:', error);
-            showNotification('error', 'Ошибка сохранения работника');
+            if (window.showNotification) showNotification('error', 'Ошибка сохранения работника');
         }
     },
     
@@ -419,7 +483,7 @@ const staffPage = {
     viewStaff: async function(id) {
         const staff = this.data.find(s => s.id === id);
         if (!staff) {
-            showNotification('error', 'Работник не найден');
+            if (window.showNotification) showNotification('error', 'Работник не найден');
             return;
         }
         
@@ -443,7 +507,7 @@ const staffPage = {
                     </div>
                     <div class="detail-item">
                         <label>Дата приема</label>
-                        <span>${formatDate(staff.hire_date)}</span>
+                        <span>${this.formatDate(staff.hire_date)}</span>
                     </div>
                     <div class="detail-item">
                         <label>Образование</label>
@@ -466,24 +530,37 @@ const staffPage = {
         `;
         
         const buttons = [
-            { label: 'Закрыть', onclick: 'closeModal()', class: 'btn-secondary' }
+            { label: 'Закрыть', onclick: 'window.closeModal && closeModal()', class: 'btn-secondary' }
         ];
         
-        if (canAccess('staff.edit')) {
+        if (window.canAccess && canAccess('staff.edit')) {
             buttons.unshift({
                 label: 'Редактировать',
-                onclick: `staffPage.edit('${id}'); closeModal();`,
+                onclick: `staffPage.edit('${id}'); window.closeModal && closeModal();`,
                 class: 'btn-primary'
             });
         }
         
-        showModal(staff.full_name, content, buttons);
+        if (window.showModal) {
+            showModal(staff.full_name, content, buttons);
+        }
+    },
+    
+    // Форматирование даты
+    formatDate: function(dateStr) {
+        if (!dateStr) return '-';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('ru-RU');
+        } catch (e) {
+            return dateStr;
+        }
     },
     
     // Вспомогательные методы
     escapeHtml: function(str) {
         if (!str) return '';
-        return str
+        return String(str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -499,7 +576,6 @@ const staffPage = {
     
     formatPhone: function(phone) {
         if (!phone) return '';
-        // Простое форматирование, можно улучшить при необходимости
         return phone;
     },
     
@@ -545,10 +621,8 @@ const staffPage = {
     },
     
     displayValidationErrors: function(errors) {
-        // Очищаем предыдущие ошибки
         this.clearValidationStyles();
         
-        // Показываем новые ошибки
         for (const [field, message] of Object.entries(errors)) {
             const errorSpan = document.getElementById(`${field}Error`);
             const input = document.getElementById(field);
@@ -563,11 +637,9 @@ const staffPage = {
     },
     
     clearValidationStyles: function() {
-        // Очищаем все сообщения об ошибках
         const errorSpans = document.querySelectorAll('.error-message');
         errorSpans.forEach(span => span.textContent = '');
         
-        // Убираем класс error со всех полей
         const errorInputs = document.querySelectorAll('.error');
         errorInputs.forEach(input => input.classList.remove('error'));
     }
