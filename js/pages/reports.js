@@ -271,129 +271,135 @@ const reportsPage = {
         }
     },
     
-    // Генерация PDF (использует pdfmake с поддержкой кириллицы)
-    generatePDF: async function(data, type, filename) {
-        const typeLabels = {
-            institution: 'Отчет по учреждению',
-            students: 'Отчет по учащимся',
-            staff: 'Отчет по работникам',
-            statistics: 'Статистический отчет'
-        };
-        
-        const fieldLabels = {
-            name: 'Название', short_name: 'Краткое название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
-            city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
-            birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
-            institution_id: 'Учреждение', is_active: 'Активен',
-            parent_phone: 'Телефон родителя', position: 'Должность',
-            hire_date: 'Дата приема', education: 'Образование',
-            specialty: 'Специальность', website: 'Сайт', description: 'Описание',
-            created_at: 'Дата создания', updated_at: 'Дата обновления',
-            license_number: 'Номер лицензии', department: 'Отдел',
-            parent_name: 'ФИО родителя', house_number: 'Номер дома',
-            license_text: 'Описание лицензии'
-        };
-        
-        const content = [];
-        
-        // Заголовок
-        content.push({
-            text: 'АИИО РБ — Автоматизация информации учреждений образования РБ',
-            style: 'header',
-            margin: [0, 0, 0, 5]
-        });
-        content.push({
-            text: typeLabels[type] || 'Отчет',
-            style: 'subheader',
-            margin: [0, 0, 0, 3]
-        });
-        content.push({
+     // Генерация PDF (использует pdfmake с поддержкой кириллицы)
+     generatePDF: async function(data, type, filename) {
+         const typeLabels = {
+             institution: 'Отчет по учреждению',
+             students: 'Отчет по учащимся',
+             staff: 'Отчет по работникам',
+             statistics: 'Статистический отчет'
+         };
+         
+         const fieldLabels = {
+             name: 'Название', short_name: 'Краткое название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
+             city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
+             birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
+             institution_id: 'Учреждение', is_active: 'Активен',
+             parent_phone: 'Телефон родителя', position: 'Должность',
+             hire_date: 'Дата приема', education: 'Образование',
+             specialty: 'Специальность', website: 'Сайт', description: 'Описание',
+             created_at: 'Дата создания', updated_at: 'Дата обновления',
+             license_number: 'Номер лицензии', department: 'Отдел',
+             parent_name: 'ФИО родителя', house_number: 'Номер дома',
+             license_text: 'Описание лицензии'
+         };
+         
+         const content = [];
+         
+         // Регламент отчета
+         content.push({
+             text: '─────────── АИИО РБ ───────────', 
+             style: 'headerLine',
+             margin: [0, 0, 0, 2]
+         });
+         content.push({
+             text: 'АИИО РБ — Автоматизация информации учреждений образования РБ',
+             style: 'header',
+             margin: [0, 0, 0, 2]
+         });
+         content.push({
+             text: typeLabels[type] || 'Отчет',
+             style: 'subheader',
+             margin: [0, 0, 0, 2]
+         });
+         content.push({
             text: `Дата формирования: ${new Date().toLocaleDateString('ru-RU')}`,
-            style: 'small',
-            margin: [0, 0, 0, 10]
-        });
-        
-        if (data.length > 0) {
-            const keys = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
-            const headers = keys.map(k => ({ text: fieldLabels[k] || k, style: 'tableHeader' }));
-            
-            // Отображаемый текст для значений: переводим булевы поля в читаемый вид
-            function displayValue(val, key) {
-                if (key === 'is_active') return val === true || val === 'true' ? 'Активен' : 'Не активен';
-                return val === null || val === undefined || val === '' ? '—' : String(val);
-            }
-            
-            const rows = data.map(item =>
-                keys.map(k => ({ text: displayValue(item[k], k), style: 'tableCell' }))
-            );
-            
-            // Рассчитываем ширину колонок
-            const colWidths = keys.map((k, i) => {
-                // Для больших таблиц делаем колонки уже
-                if (keys.length > 5) return 'auto';
-                return '*';
-            });
-            
-            content.push({
-                table: {
-                    headerRows: 1,
-                    widths: colWidths,
-                    body: [headers, ...rows]
-                },
-                layout: {
-                    hLineWidth: () => 0.5,
-                    vLineWidth: () => 0.5,
-                    hLineColor: () => '#e2e8f0',
-                    vLineColor: () => '#e2e8f0',
-                    fillColor: (rowIndex) => rowIndex === 0 ? '#2563eb' : (rowIndex % 2 === 0 ? '#f8fafc' : null),
-                    paddingLeft: () => 3,
-                    paddingRight: () => 3,
-                    paddingTop: () => 2,
-                    paddingBottom: () => 2
-                },
-                margin: [0, 0, 0, 10]
-            });
-            
-            content.push({
-                text: `Итого записей: ${data.length}`,
-                style: 'small',
-                margin: [0, 5, 0, 0]
-            });
-            
-            const docDef = {
-                pageSize: 'A4',
-                pageOrientation: keys.length > 5 ? 'landscape' : 'portrait',
-                pageMargins: [20, 30, 20, 30],
-                content: content,
-                defaultStyle: { font: 'Roboto', fontSize: 8 },
-                styles: {
-                    header: { fontSize: 12, bold: true, color: '#1e293b' },
-                    subheader: { fontSize: 10, bold: true, color: '#2563eb' },
-                    small: { fontSize: 8, color: '#64748b' },
-                    tableHeader: { bold: true, color: '#ffffff', fontSize: 8, alignment: 'center' },
-                    tableCell: { fontSize: 7, color: '#1e293b' }
-                }
-            };
-            
-            pdfMake.createPdf(docDef).download(filename + '.pdf');
-        } else {
-            content.push({ text: 'Данные отсутствуют', style: 'small' });
-            
-            const docDef = {
-                pageSize: 'A4',
-                pageMargins: [20, 30, 20, 30],
-                content: content,
-                defaultStyle: { font: 'Roboto', fontSize: 8 },
-                styles: {
-                    header: { fontSize: 12, bold: true, color: '#1e293b' },
-                    subheader: { fontSize: 10, bold: true, color: '#2563eb' },
-                    small: { fontSize: 8, color: '#64748b' }
-                }
-            };
-            
-            pdfMake.createPdf(docDef).download(filename + '.pdf');
-        }
-    },
+             style: 'small',
+             margin: [0, 0, 0, 6]
+         });
+         content.push({ text: '\n', margin: [0, 0, 0, 6] });
+         
+         if (data.length > 0) {
+             const keys = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at', 'latitude', 'longitude'].includes(k));
+             const headers = keys.map(k => ({ text: fieldLabels[k] || k, style: 'tableHeader' }));
+             
+             function displayValue(val, key) {
+                 if (key === 'is_active') return val === true || val === 'true' ? 'Активен' : 'Не активен';
+                 if (key === 'gender') return val === 'male' ? 'Мужской' : (val === 'female' ? 'Женский' : (val === null || val === undefined || val === '' ? '—' : val));
+                 return val === null || val === undefined || val === '' ? '—' : String(val);
+             }
+             
+             const rows = data.map(item =>
+                 keys.map(k => ({ text: displayValue(item[k], k), style: 'tableCell' }))
+             );
+             
+             const colWidths = keys.map((k, i) => {
+                 if (keys.length > 5) return 'auto';
+                 return '*';
+             });
+             
+             content.push({
+                 table: {
+                     headerRows: 1,
+                     widths: colWidths,
+                     body: [headers, ...rows]
+                 },
+                 layout: {
+                     hLineWidth: () => 0.5,
+                     vLineWidth: () => 0.5,
+                     hLineColor: () => '#e2e8f0',
+                     vLineColor: () => '#e2e8f0',
+                     fillColor: (rowIndex) => rowIndex === 0 ? '#2563eb' : (rowIndex % 2 === 0 ? '#f8fafc' : null),
+                     paddingLeft: () => 3,
+                     paddingRight: () => 3,
+                     paddingTop: () => 2,
+                     paddingBottom: () => 2
+                 },
+                 margin: [0, 0, 0, 10]
+             });
+             
+             content.push({
+                 text: `Итого записей: ${data.length}`,
+                 style: 'small',
+                 margin: [0, 5, 0, 0]
+             });
+             
+             const docDef = {
+                 pageSize: 'A4',
+                 pageOrientation: keys.length > 5 ? 'landscape' : 'portrait',
+                 pageMargins: [20, 30, 20, 30],
+                 content: content,
+                 defaultStyle: { font: 'Roboto', fontSize: 8 },
+                 styles: {
+                     headerLine: { fontSize: 9, bold: true, color: '#64748b', alignment: 'center' },
+                     header: { fontSize: 12, bold: true, color: '#1e293b' },
+                     subheader: { fontSize: 10, bold: true, color: '#2563eb' },
+                     small: { fontSize: 8, color: '#64748b' },
+                     tableHeader: { bold: true, color: '#ffffff', fontSize: 8, alignment: 'center' },
+                     tableCell: { fontSize: 7, color: '#1e293b' }
+                 }
+             };
+             
+             pdfMake.createPdf(docDef).download(filename + '.pdf');
+         } else {
+             content.push({ text: 'Данные отсутствуют', style: 'small' });
+             
+             const docDef = {
+                 pageSize: 'A4',
+                 pageMargins: [20, 30, 20, 30],
+                 content: content,
+                 defaultStyle: { font: 'Roboto', fontSize: 8 },
+                 styles: {
+                     headerLine: { fontSize: 9, bold: true, color: '#64748b', alignment: 'center' },
+                     header: { fontSize: 12, bold: true, color: '#1e293b' },
+                     subheader: { fontSize: 10, bold: true, color: '#2563eb' },
+                     small: { fontSize: 8, color: '#64748b' }
+                 }
+             };
+             
+             pdfMake.createPdf(docDef).download(filename + '.pdf');
+         }
+     },
     
     // Генерация Excel
     generateExcel: function(data, type, filename) {
@@ -431,23 +437,47 @@ const reportsPage = {
         XLSX.writeFile(wb, filename + '.xlsx');
     },
     
-    // Генерация содержимого Word
-    generateDocContent: function(data, type) {
-        let content = 'АИИО РБ - Отчет\r\n';
-        content += '====================\r\n\r\n';
-        content += `Тип отчета: ${type}\r\n`;
-        content += `Дата: ${new Date().toLocaleDateString('ru-RU')}\r\n\r\n`;
-        
-        if (data.length > 0) {
-            content += 'Данные:\r\n\r\n';
-            
-            data.forEach((item, index) => {
-                content += `${index + 1}. ${JSON.stringify(item, null, 2)}\r\n\r\n`;
-            });
-        }
-        
-        return content;
-    },
+     // Генерация содержимого Word
+     generateDocContent: function(data, type) {
+         const typeLabels = {
+             institution: 'Отчет по учреждению',
+             students: 'Отчет по учащимся',
+             staff: 'Отчет по работникам',
+             statistics: 'Статистический отчет'
+         };
+
+         let content = [
+             '\uFEFF',
+             'ОТЧЕТ\r',
+             '========================================\r',
+             '\r',
+             'Система: АИИО РБ — Автоматизация информации учреждений образования РБ\r',
+             `Тип отчета: ${typeLabels[type] || type}\r`
+             `Дата формирования: ${new Date().toLocaleDateString('ru-RU')}\r`
+             `Кол-во записей: ${data.length}\r`
+             '========================================\r'
+             '\r'
+         ].join('');
+
+         if (data.length > 0) {
+             const keys = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
+             const headers = keys.map(k => fieldLabels[k] || k);
+
+             content += headers.join(' | ') + '\r';
+             content += headers.map(() => '---').join('|') + '\r';
+
+             data.forEach((item, index) => {
+                 const values = keys.map(k => {
+                     if (k === 'is_active') return item[k] === true || item[k] === 'true' ? 'Активен' : 'Не активен';
+                     if (k === 'gender') return item[k] === 'male' ? 'Мужской' : (item[k] === 'female' ? 'Женский' : '—');
+                     return item[k] === null || item[k] === undefined || item[k] === '' ? '—' : String(item[k]);
+                 });
+                 content += (index + 1) + '. ' + values.join(' | ') + '\r';
+             });
+         }
+
+         return content;
+     },
     
     // Скачивание файла
     downloadFile: function(content, filename, type) {

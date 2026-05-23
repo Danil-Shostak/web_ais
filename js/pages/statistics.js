@@ -395,7 +395,7 @@ const statisticsPage = {
         const baseOptions = {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: true, position: 'bottom' } },
+            plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: 13 } } } },
             scales: { y: { beginAtZero: true } }
         };
         
@@ -442,11 +442,11 @@ const statisticsPage = {
                              backgroundColor: ['#3b82f6', '#ec4899']
                          }]
                      },
-                     options: {
-                         responsive: true,
-                         maintainAspectRatio: false,
-                         plugins: { legend: { display: true, position: 'bottom' } }
-                     }
+                      options: {
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: 13 } } } }
+                      }
                  });
              }
              
@@ -567,7 +567,7 @@ const statisticsPage = {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
+                        plugins: { legend: { display: false, labels: { font: { size: 13 } } } },
                         scales: { y: { beginAtZero: true } }
                     }
                 });
