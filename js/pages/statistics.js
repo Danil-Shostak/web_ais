@@ -584,19 +584,62 @@ const statisticsPage = {
     
     exportStats: function() {
         const typeStats = this.getTypeStats();
-        
-        const data = [['Тип', 'Количество', 'Процент']];
-        
+        const today = new Date().toLocaleDateString('ru-RU');
+
+        const data = [
+            ['АИИО РБ — Автоматизация информации учреждений образования РБ'],
+            ['Статистический отчет по типам учреждений'],
+            ['Дата формирования:', today],
+            [''],
+            ['Тип', 'Количество', 'Процент'],
+        ];
+
         typeStats.forEach(stat => {
             data.push([stat.type, stat.count, stat.percent + '%']);
         });
-        
+
         const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Заголовки жирным, автоширина колонок
+        const ws_range = XLSX.utils.decode_range(ws['!ref']);
+        const col_widths = {};
+        for (let R = 0; R <= ws_range.e.r; R++) {
+            for (let C = ws_range.s.c; C <= ws_range.e.c; C++) {
+                const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
+                const cell = ws[cell_ref];
+                if (!cell) continue;
+                if (R === 0) {
+                    cell.s = cell.s || {};
+                    cell.s.font = { bold: true, sz: 14, name: 'Calibri' };
+                    cell.s.alignment = { horizontal: 'left', vertical: 'center' };
+                } else if (R === 4) {
+                    cell.s = cell.s || {};
+                    cell.s.font = { bold: true, sz: 12, name: 'Calibri' };
+                    cell.s.alignment = { horizontal: 'center', vertical: 'center' };
+                } else {
+                    cell.s = cell.s || {};
+                    cell.s.font = { sz: 12, name: 'Calibri' };
+                    cell.s.alignment = { vertical: 'center' };
+                }
+                const val = String(cell.t === 'n' ? (cell.v === 0 ? '0' : cell.v) : (cell.v || ''));
+                const w = Math.min(Math.max(val.length * 1.6, 10), 50);
+                col_widths[C] = Math.max(col_widths[C] || 10, w);
+            }
+        }
+        ws['!cols'] = Object.values(col_widths).map(w => ({ wch: Math.round(w) }));
+        ws['!autofilter'] = { ref: 'A5:C' + (5 + typeStats.length) };
+
+        // Объединение ячеек для заголовка
+        ws['!merges'] = ws['!merges'] || [];
+        ws['!merges'].push({s: {r: 0, c: 0}, e: {r: 0, c: 2}});
+        ws['!merges'].push({s: {r: 1, c: 0}, e: {r: 1, c: 2}});
+        ws['!merges'].push({s: {r: 2, c: 0}, e: {r: 2, c: 1}});
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Статистика');
-        
+
         XLSX.writeFile(wb, 'statistics.xlsx');
-        
+
         showNotification('success', 'Статистика экспортирована в Excel');
     }
 };

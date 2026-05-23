@@ -422,18 +422,44 @@ const reportsPage = {
             parent_name: 'ФИО родителя', house_number: 'Номер дома'
         };
         
-        const excelHeaders = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
+        const excelHeaders = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at', 'latitude', 'longitude'].includes(k));
         const translatedHeaders = excelHeaders.map(k => fieldLabels[k] || k);
         const rows = data.map(item => excelHeaders.map(k => {
             if (k === 'is_active') return item[k] === true || item[k] === 'true' ? 'Активен' : 'Не активен';
             return item[k] ?? '—';
         }));
         
-        // Создание книги
-        const ws = XLSX.utils.aoa_to_sheet([translatedHeaders, ...rows]);
+        // Создание книги с форматированием
+        const ws_data = [translatedHeaders, ...rows];
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+        // Заголовки жирным, автоширина колонок
+        const ws_range = XLSX.utils.decode_range(ws['!ref']);
+        const col_widths = {};
+        for (let R = 0; R <= ws_range.e.r; R++) {
+            for (let C = ws_range.s.c; C <= ws_range.e.c; C++) {
+                const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
+                const cell = ws[cell_ref];
+                if (!cell) continue;
+                if (R === 0) {
+                    cell.s = cell.s || {};
+                    cell.s.font = { bold: true, sz: 13, name: 'Calibri' };
+                    cell.s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+                } else {
+                    cell.s = cell.s || {};
+                    cell.s.font = { sz: 12, name: 'Calibri' };
+                    cell.s.alignment = { vertical: 'center', wrapText: false };
+                }
+                const val = String(cell.t === 'n' ? (cell.v === 0 ? '0' : cell.v) : (cell.v || ''));
+                const w = Math.min(Math.max(val.length * 1.8, 10), 45);
+                col_widths[C] = Math.max(col_widths[C] || 10, w);
+            }
+        }
+        ws['!cols'] = Object.values(col_widths).map(w => ({ wch: Math.round(w) }));
+        ws['!autofilter'] = { ref: ws['!ref'] };
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Отчет');
-        
         XLSX.writeFile(wb, filename + '.xlsx');
     },
     
@@ -446,33 +472,53 @@ const reportsPage = {
              statistics: 'Статистический отчет'
          };
 
-         let content = [
-             '\uFEFF',
-             'ОТЧЕТ\r',
-             '========================================\r',
-             '\r',
-             'Система: АИИО РБ — Автоматизация информации учреждений образования РБ\r',
-             `Тип отчета: ${typeLabels[type] || type}\r`
-             `Дата формирования: ${new Date().toLocaleDateString('ru-RU')}\r`
-             `Кол-во записей: ${data.length}\r`
-             '========================================\r'
-             '\r'
-         ].join('');
+         const fieldLabels = {
+             name: 'Название', short_name: 'Краткое название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
+             city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
+             birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
+             institution_id: 'Учреждение', is_active: 'Активен',
+             parent_phone: 'Телефон родителя', position: 'Должность',
+             hire_date: 'Дата приема', education: 'Образование',
+             specialty: 'Специальность', website: 'Сайт', description: 'Описание',
+             created_at: 'Дата создания', updated_at: 'Дата обновления',
+             license_number: 'Номер лицензии', department: 'Отдел',
+             parent_name: 'ФИО родителя', house_number: 'Номер дома'
+         };
+
+         var content =
+             '\uFEFF' +
+             '\u041e\u0422\u0427\u0415\u0422\r\n' +
+             '========================================\r\n' +
+             '\r\n' +
+             '\u0421\u0438\u0441\u0442\u0435\u043c\u0430: \u0410\u0418\u0418\u041e \u0420\u0411 \u2014 \u0410\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0438\u044f \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u0438 \u0443\u0447\u0440\u0435\u0436\u0434\u0435\u043d\u0438\u0439 \u043e\u0431\u0440\u0430\u0437\u043e\u0432\u0430\u043d\u0438\u044f \u0420\u0411\r\n' +
+             '\u0422\u0438\u043f \u043e\u0442\u0447\u0435\u0442\u0430: ' + (typeLabels[type] || type) + '\r\n' +
+             '\u0414\u0430\u0442\u0430 \u0444\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f: ' + new Date().toLocaleDateString('ru-RU') + '\r\n' +
+             '\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u0437\u0430\u043f\u0438\u0441\u0435\u0439: ' + data.length + '\r\n' +
+             '========================================\r\n' +
+             '\r\n';
 
          if (data.length > 0) {
-             const keys = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
-             const headers = keys.map(k => fieldLabels[k] || k);
+             const keys = Object.keys(data[0]).filter(function(k) {
+                 return !['id', 'created_at', 'updated_at'].includes(k);
+             });
+             var headers = keys.map(function(k) { return fieldLabels[k] || k; });
 
-             content += headers.join(' | ') + '\r';
-             content += headers.map(() => '---').join('|') + '\r';
+             content += headers.join(' | ') + '\r\n';
+             content += headers.map(function() { return '---'; }).join('|') + '\r\n';
 
-             data.forEach((item, index) => {
-                 const values = keys.map(k => {
-                     if (k === 'is_active') return item[k] === true || item[k] === 'true' ? 'Активен' : 'Не активен';
-                     if (k === 'gender') return item[k] === 'male' ? 'Мужской' : (item[k] === 'female' ? 'Женский' : '—');
-                     return item[k] === null || item[k] === undefined || item[k] === '' ? '—' : String(item[k]);
+             data.forEach(function(item, index) {
+                 var values = keys.map(function(k) {
+                     if (k === 'is_active') {
+                         return item[k] === true || item[k] === 'true' ? '\u0410\u043a\u0442\u0438\u0432\u0435\u043d' : '\u041d\u0435 \u0430\u043a\u0442\u0438\u0432\u0435\u043d';
+                     }
+                     if (k === 'gender') {
+                         return item[k] === 'male'
+                             ? '\u041c\u0443\u0436\u0441\u043a\u043e\u0439'
+                             : (item[k] === 'female' ? '\u0416\u0435\u043d\u0441\u043a\u0438\u0439' : '\u2014');
+                     }
+                     return item[k] === null || item[k] === undefined || item[k] === '' ? '\u2014' : String(item[k]);
                  });
-                 content += (index + 1) + '. ' + values.join(' | ') + '\r';
+                 content += (index + 1) + '. ' + values.join(' | ') + '\r\n';
              });
          }
 
