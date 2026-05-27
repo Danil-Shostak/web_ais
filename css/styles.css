@@ -1286,6 +1286,12 @@ body.dark-theme .map-container {
     gap: 18px;
 }
 
+.stats-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+}
+
 .stats-grid-positions {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

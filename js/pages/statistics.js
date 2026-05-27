@@ -23,323 +23,45 @@ const statisticsPage = {
         } catch (error) {
             console.error('Error loading statistics:', error);
             this.render();
-        }
-    },
-    
-    render: function() {
-        const institutionFilter = document.getElementById('institutionFilter');
-        this.selectedInstitution = institutionFilter ? institutionFilter.value : '';
-        
-        const filteredInstitutions = this.selectedInstitution 
-            ? this.institutions.filter(i => i.id === this.selectedInstitution)
-            : this.institutions;
-        
-        const filteredStudents = this.selectedInstitution
-            ? this.students.filter(s => s.institution_id === this.selectedInstitution)
-            : this.students;
-            
-        const filteredStaff = this.selectedInstitution
-            ? this.staff.filter(s => s.institution_id === this.selectedInstitution)
-            : this.staff;
-        
-        const selectedInst = this.selectedInstitution 
-            ? this.institutions.find(i => i.id === this.selectedInstitution) 
-            : null;
-        
-        const institutionStats = this.getInstitutionStats(selectedInst);
-        
-        const html = `
-            <div class="page-header">
-                <h1>Статистика учреждений образования</h1>
-                <p>Аналитические данные и визуализация показателей</p>
-            </div>
-            
-            <div class="filters-bar">
-                <div class="filter-group">
-                    <label>Учреждение образования</label>
-                    <select id="institutionFilter" onchange="statisticsPage.updateCharts()">
-                        <option value="">Все учреждения</option>
-                        ${this.institutions.map(i => `<option value="${i.id}" ${this.selectedInstitution === i.id ? 'selected' : ''}>${i.name}</option>`).join('')}
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label>Период</label>
-                    <select id="periodFilter" onchange="statisticsPage.updateCharts()">
-                        <option value="all">За весь период</option>
-                        <option value="year">За год</option>
-                        <option value="month">За месяц</option>
-                    </select>
-                </div>
-            </div>
-            
-            ${selectedInst ? `
-            <div class="institution-profile-section">
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h2>📋 Информация об учреждении</h2>
-                    </div>
-                    <div class="card-body">
-                        <div class="stats-grid-4">
-                            <div class="stat-item">
-                                <span class="stat-label">Название</span>
-                                <span class="stat-value">${selectedInst.name || '—'}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Тип</span>
-                                <span class="stat-value">${selectedInst.type || '—'}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Регион</span>
-                                <span class="stat-value">${selectedInst.region || '—'}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Адрес</span>
-                                <span class="stat-value">${selectedInst.address || '—'}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Телефон</span>
-                                <span class="stat-value">${selectedInst.phone || '—'}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Email</span>
-                                <span class="stat-value">${selectedInst.email || '—'}</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Сайт</span>
-                                <span class="stat-value">${selectedInst.website || '—'}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            ` : ''}
-            
-            ${selectedInst ? `
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h2>👨‍🎓 Учащиеся</h2>
-                </div>
-                <div class="card-body">
-                    <div class="stats-grid-3">
-                        <div class="stat-item stat-primary">
-                            <span class="stat-label">Всего учащихся</span>
-                            <span class="stat-value-large">${institutionStats.totalStudents || 0}</span>
-                        </div>
-                        <div class="stat-item stat-male">
-                            <span class="stat-label">Мальчики</span>
-                            <span class="stat-value">${institutionStats.genderCounts.male || 0}</span>
-                        </div>
-                        <div class="stat-item stat-female">
-                            <span class="stat-label">Девочки</span>
-                            <span class="stat-value">${institutionStats.genderCounts.female || 0}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h2>👩‍🏫 Состав работников</h2>
-                </div>
-                <div class="card-body">
-                    <div class="stats-grid-3 mb-3">
-                        <div class="stat-item stat-primary">
-                            <span class="stat-label">Всего работников</span>
-                            <span class="stat-value-large">${institutionStats.totalStaff || 0}</span>
-                        </div>
-                        <div class="stat-item stat-male">
-                            <span class="stat-label">Мужчин</span>
-                            <span class="stat-value">${institutionStats.staffGenderCounts.male || 0}</span>
-                        </div>
-                        <div class="stat-item stat-female">
-                            <span class="stat-label">Женщин</span>
-                            <span class="stat-value">${institutionStats.staffGenderCounts.female || 0}</span>
-                        </div>
-                    </div>
-                    
-                    ${Object.keys(institutionStats.positionCounts).length > 0 ? `
-                    <h4 class="mb-2">По должностям:</h4>
-                    <div class="stats-grid-positions">
-                        ${Object.keys(institutionStats.positionCounts).map(pos => `
-                        <div class="stat-item stat-position">
-                            <span class="stat-label">${pos}</span>
-                            <span class="stat-value">${institutionStats.positionCounts[pos]}</span>
-                        </div>
-                        `).join('')}
-                    </div>
-                    ` : ''}
-                    
-                    ${Object.keys(institutionStats.educationCounts).length > 0 ? `
-                    <h4 class="mb-2 mt-3">По образованию:</h4>
-                    <div class="stats-grid-positions">
-                        ${Object.keys(institutionStats.educationCounts).map(edu => `
-                        <div class="stat-item stat-education">
-                            <span class="stat-label">${edu}</span>
-                            <span class="stat-value">${institutionStats.educationCounts[edu]}</span>
-                        </div>
-                        `).join('')}
-                    </div>
-                    ` : ''}
-                </div>
-            </div>
-            ` : ''}
-            
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon blue">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"></path>
-                        </svg>
-                    </div>
-                    <div class="stat-info">
-                        <h4>${filteredInstitutions.length}</h4>
-                        <p>${selectedInst ? 'Учреждение' : 'Всего учреждений'}</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon green">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
-                    </div>
-                    <div class="stat-info">
-                        <h4>${filteredStudents.length}</h4>
-                        <p>${selectedInst ? 'Учащихся' : 'Всего учащихся'}</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon orange">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="8.5" cy="7" r="4"></circle>
-                            <line x1="20" y1="8" x2="20" y2="14"></line>
-                            <line x1="23" y1="11" x2="17" y2="11"></line>
-                        </svg>
-                    </div>
-                    <div class="stat-info">
-                        <h4>${filteredStaff.length}</h4>
-                        <p>${selectedInst ? 'Работников' : 'Всего работников'}</p>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon purple">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                            <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
-                        </svg>
-                    </div>
-                    <div class="stat-info">
-                        <h4>${this.getCountByType('Общее среднее')}</h4>
-                        <p>Школ</p>
-                    </div>
-                </div>
-            </div>
-            
-            ${selectedInst ? `
-            <div class="grid-2">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>📊 Распределение учащихся по классам/курсам</h3>
-                    </div>
-                    <div class="chart-wrapper">
-                        <canvas id="gradeChart"></canvas>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-header">
-                        <h3>👥 Распределение учащихся по полу</h3>
-                    </div>
-                    <div class="chart-wrapper">
-                        <canvas id="genderChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="grid-2">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>💼 Состав работников по должностям</h3>
-                    </div>
-                    <div class="chart-wrapper">
-                        <canvas id="positionChart"></canvas>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-header">
-                        <h3>🎓 Работники по уровню образования</h3>
-                    </div>
-                    <div class="chart-wrapper">
-                        <canvas id="educationChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            ` : `
-            <div class="grid-2">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>📊 Учреждения по типам</h3>
-                    </div>
-                    <div class="chart-wrapper">
-                        <canvas id="typeChart"></canvas>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-header">
-                        <h3>🗺️ Учреждения по регионам</h3>
-                    </div>
-                    <div class="chart-wrapper">
-                        <canvas id="regionChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <h3>📅 Динамика создания учреждений</h3>
-                </div>
-                <div class="chart-wrapper">
-                    <canvas id="timelineChart"></canvas>
-                </div>
-            </div>
-            `}
-            
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h3>📈 Детальная статистика</h3>
-                    <button class="btn-secondary btn-sm" onclick="statisticsPage.exportStats()">
-                        📥 Экспорт в Excel
-                    </button>
-                </div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Тип учреждения</th>
-                                <th>Количество</th>
-                                <th>Процент</th>
-                                <th>Визуализация</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.getTypeStats().map(stat => `
-                                <tr>
-                                    <td><strong>${stat.type}</strong></td>
-                                    <td>${stat.count}</td>
-                                    <td>${stat.percent}%</td>
-                                    <td>
-                                        <div style="width: 100%; background: #e2e8f0; height: 20px; border-radius: 4px;">
-                                            <div style="width: ${stat.percent}%; background: var(--primary-color); height: 100%; border-radius: 4px;"></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
+}
+             
+            ${!selectedInst ? `
+             <div class="card mt-3">
+                 <div class="card-header">
+                     <h3>📈 Детальная статистика</h3>
+                     <button class="btn-secondary btn-sm" onclick="statisticsPage.exportStats()">
+                         📥 Экспорт в Excel
+                     </button>
+                 </div>
+                 <div class="table-container">
+                     <table>
+                         <thead>
+                             <tr>
+                                 <th>Тип учреждения</th>
+                                 <th>Количество</th>
+                                 <th>Процент</th>
+                                 <th>Визуализация</th>
+                             </tr>
+                         </thead>
+                         <tbody>
+                             ${this.getTypeStats().map(stat => `
+                                 <tr>
+                                     <td><strong>${stat.type}</strong></td>
+                                     <td>${stat.count}</td>
+                                     <td>${stat.percent}%</td>
+                                     <td>
+                                         <div style="width: 100%; background: #e2e8f0; height: 20px; border-radius: 4px;">
+                                             <div style="width: ${stat.percent}%; background: var(--primary-color); height: 100%; border-radius: 4px;"></div>
+                                         </div>
+                                     </td>
+                                 </tr>
+                             `).join('')}
+                         </tbody>
+                     </table>
+                 </div>
+             </div>
+             ` : ''}
+         `;
         
         document.getElementById('pageContent').innerHTML = html;
         
