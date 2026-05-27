@@ -47,17 +47,16 @@ const statisticsPage = {
             : null;
         
         const institutionStats = this.getInstitutionStats(selectedInst);
-        const gradeStats = this.getGradeStats(filteredStudents);
         
         const html = `
             <div class="page-header">
-                <h1>Статистика${selectedInst ? ': ' + selectedInst.name : ''}</h1>
+                <h1>Статистика учреждений образования</h1>
                 <p>Аналитические данные и визуализация показателей</p>
             </div>
             
             <div class="filters-bar">
                 <div class="filter-group">
-                    <label>Учреждение</label>
+                    <label>Учреждение образования</label>
                     <select id="institutionFilter" onchange="statisticsPage.updateCharts()">
                         <option value="">Все учреждения</option>
                         ${this.institutions.map(i => `<option value="${i.id}" ${this.selectedInstitution === i.id ? 'selected' : ''}>${i.name}</option>`).join('')}
@@ -66,103 +65,124 @@ const statisticsPage = {
                 <div class="filter-group">
                     <label>Период</label>
                     <select id="periodFilter" onchange="statisticsPage.updateCharts()">
-                        <option value="all">За все время</option>
+                        <option value="all">За весь период</option>
                         <option value="year">За год</option>
                         <option value="month">За месяц</option>
                     </select>
+                </div>
             </div>
             
-${selectedInst ? `
-          <div class="card mb-3">
-              <div class="card-header">
-                  <h3>Информация об учреждении</h3>
-              </div>
-              <div class="detail-grid">
-                  <div class="detail-item">
-                      <label>Название</label>
-                      <span>${selectedInst.name || '—'}</span>
-                  </div>
-                  <div class="detail-item">
-                      <label>Тип</label>
-                      <span>${selectedInst.type || '—'}</span>
-                  </div>
-                  <div class="detail-item">
-                      <label>Регион</label>
-                      <span>${selectedInst.region || '—'}</span>
-                  </div>
-                  <div class="detail-item">
-                      <label>Адрес</label>
-                      <span>${selectedInst.address || '—'}</span>
-                  </div>
-                  <div class="detail-item">
-                      <label>Телефон</label>
-                      <span>${selectedInst.phone || '—'}</span>
-                  </div>
-                  <div class="detail-item">
-                      <label>Email</label>
-                      <span>${selectedInst.email || '—'}</span>
-                  </div>
-                  <div class="detail-item">
-                      <label>Сайт</label>
-                      <span>${selectedInst.website || '—'}</span>
-                  </div>
-              </div>
-          </div>
-          ` : ''}
-          ${selectedInst ? `
-          <div class="card mb-3">
-              <div class="card-header">
-                  <h3>Учащиеся</h3>
-              </div>
-              <div class="detail-grid">
-                  <div class="detail-item">
-                      <label>Всего учащихся</label>
-                      <span>${institutionStats.totalStudents || 0}</span>
-                  </div>
-                  <div class="detail-item">
-                      <label>Мальчики</label>
-                      <span>${institutionStats.genderCounts.male || 0}</span>
-                  </div>
-                  <div class="detail-item">
-                      <label>Девочки</label>
-                      <span>${institutionStats.genderCounts.female || 0}</span>
-                  </div>
-              </div>
-          </div>
-          ` : ''}
-${selectedInst && institutionStats ? `
-           <div class="card mb-3">
-               <div class="card-header">
-                   <h3>Состав работников</h3>
-               </div>
-               <div class="detail-grid">
-                   <div class="detail-item">
-                       <label>Всего работников</label>
-                       <span>${institutionStats.totalStaff || 0}</span>
-                   </div>
-                   <div class="detail-item">
-                       <label>Мужчин</label>
-                       <span>${institutionStats.staffGenderCounts.male || 0}</span>
-                   </div>
-                   <div class="detail-item">
-                       <label>Женщин</label>
-                       <span>${institutionStats.staffGenderCounts.female || 0}</span>
-                   </div>
-                   ${Object.keys(institutionStats.positionCounts).map(pos => `
-                   <div class="detail-item">
-                       <label>${pos}</label>
-                       <span>${institutionStats.positionCounts[pos]}</span>
-                   </div>
-                   `).join('')}
-                   ${Object.keys(institutionStats.educationCounts).map(edu => `
-                   <div class="detail-item">
-                       <label>Образование: ${edu}</label>
-                       <span>${institutionStats.educationCounts[edu]}</span>
-                   </div>
-                   `).join('')}
-               </div>
-           </div>
-           ` : ''}
+            ${selectedInst ? `
+            <div class="institution-profile-section">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h2>📋 Информация об учреждении</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-grid-4">
+                            <div class="stat-item">
+                                <span class="stat-label">Название</span>
+                                <span class="stat-value">${selectedInst.name || '—'}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Тип</span>
+                                <span class="stat-value">${selectedInst.type || '—'}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Регион</span>
+                                <span class="stat-value">${selectedInst.region || '—'}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Адрес</span>
+                                <span class="stat-value">${selectedInst.address || '—'}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Телефон</span>
+                                <span class="stat-value">${selectedInst.phone || '—'}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Email</span>
+                                <span class="stat-value">${selectedInst.email || '—'}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Сайт</span>
+                                <span class="stat-value">${selectedInst.website || '—'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+            
+            ${selectedInst ? `
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h2>👨‍🎓 Учащиеся</h2>
+                </div>
+                <div class="card-body">
+                    <div class="stats-grid-3">
+                        <div class="stat-item stat-primary">
+                            <span class="stat-label">Всего учащихся</span>
+                            <span class="stat-value-large">${institutionStats.totalStudents || 0}</span>
+                        </div>
+                        <div class="stat-item stat-male">
+                            <span class="stat-label">Мальчики</span>
+                            <span class="stat-value">${institutionStats.genderCounts.male || 0}</span>
+                        </div>
+                        <div class="stat-item stat-female">
+                            <span class="stat-label">Девочки</span>
+                            <span class="stat-value">${institutionStats.genderCounts.female || 0}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h2>👩‍🏫 Состав работников</h2>
+                </div>
+                <div class="card-body">
+                    <div class="stats-grid-3 mb-3">
+                        <div class="stat-item stat-primary">
+                            <span class="stat-label">Всего работников</span>
+                            <span class="stat-value-large">${institutionStats.totalStaff || 0}</span>
+                        </div>
+                        <div class="stat-item stat-male">
+                            <span class="stat-label">Мужчин</span>
+                            <span class="stat-value">${institutionStats.staffGenderCounts.male || 0}</span>
+                        </div>
+                        <div class="stat-item stat-female">
+                            <span class="stat-label">Женщин</span>
+                            <span class="stat-value">${institutionStats.staffGenderCounts.female || 0}</span>
+                        </div>
+                    </div>
+                    
+                    ${Object.keys(institutionStats.positionCounts).length > 0 ? `
+                    <h4 class="mb-2">По должностям:</h4>
+                    <div class="stats-grid-positions">
+                        ${Object.keys(institutionStats.positionCounts).map(pos => `
+                        <div class="stat-item stat-position">
+                            <span class="stat-label">${pos}</span>
+                            <span class="stat-value">${institutionStats.positionCounts[pos]}</span>
+                        </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                    
+                    ${Object.keys(institutionStats.educationCounts).length > 0 ? `
+                    <h4 class="mb-2 mt-3">По образованию:</h4>
+                    <div class="stats-grid-positions">
+                        ${Object.keys(institutionStats.educationCounts).map(edu => `
+                        <div class="stat-item stat-education">
+                            <span class="stat-label">${edu}</span>
+                            <span class="stat-value">${institutionStats.educationCounts[edu]}</span>
+                        </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            ` : ''}
             
             <div class="stats-grid">
                 <div class="stat-card">
@@ -204,7 +224,7 @@ ${selectedInst && institutionStats ? `
                     </div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon red">
+                    <div class="stat-icon purple">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
                             <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
@@ -218,98 +238,78 @@ ${selectedInst && institutionStats ? `
             </div>
             
             ${selectedInst ? `
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h3>Распределение учащихся по классам/курсам</h3>
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📊 Распределение учащихся по классам/курсам</h3>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="gradeChart"></canvas>
+                    </div>
                 </div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Класс/Курс</th>
-                                <th>Количество учащихся</th>
-                                <th>Процент</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${Object.keys(gradeStats).length > 0 ? Object.entries(gradeStats).sort((a,b) => {
-                                const aNum = parseInt(a[0]) || 0;
-                                const bNum = parseInt(b[0]) || 0;
-                                return aNum - bNum;
-                            }).map(([grade, count]) => `
-                                <tr>
-                                    <td>${grade}</td>
-                                    <td>${count}</td>
-                                    <td>${Math.round((count / filteredStudents.length) * 100)}%</td>
-                                </tr>
-                            `).join('') : '<tr><td colspan="3" class="text-center text-muted">Нет данных</td></tr>'}
-                        </tbody>
-                    </table>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>👥 Распределение учащихся по полу</h3>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="genderChart"></canvas>
+                    </div>
                 </div>
             </div>
-            ` : ''}
             
-            ${!selectedInst ? `
             <div class="grid-2">
-                <div class="chart-container">
-                    <h3>Учреждения по типам</h3>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💼 Состав работников по должностям</h3>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="positionChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🎓 Работники по уровню образования</h3>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="educationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            ` : `
+            <div class="grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📊 Учреждения по типам</h3>
+                    </div>
                     <div class="chart-wrapper">
                         <canvas id="typeChart"></canvas>
                     </div>
                 </div>
-                <div class="chart-container">
-                    <h3>Учреждения по регионам</h3>
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🗺️ Учреждения по регионам</h3>
+                    </div>
                     <div class="chart-wrapper">
                         <canvas id="regionChart"></canvas>
                     </div>
                 </div>
             </div>
             
-            <div class="chart-container">
-                <h3>Динамика учреждений по годам</h3>
+            <div class="card">
+                <div class="card-header">
+                    <h3>📅 Динамика создания учреждений</h3>
+                </div>
                 <div class="chart-wrapper">
                     <canvas id="timelineChart"></canvas>
                 </div>
             </div>
-            ` : ''}
-            
-             ${selectedInst ? `
-             <div class="grid-2">
-                 <div class="chart-container">
-                     <h3>Распределение по классам/курсам</h3>
-                     <div class="chart-wrapper">
-                         <canvas id="gradeChart"></canvas>
-                     </div>
-                 </div>
-                 <div class="chart-container">
-                     <h3>Распределение по полу</h3>
-                     <div class="chart-wrapper">
-                         <canvas id="genderChart"></canvas>
-                     </div>
-                 </div>
-             </div>
-             
-             <div class="grid-2">
-                 <div class="chart-container">
-                     <h3>Состав сотрудников по должностям</h3>
-                     <div class="chart-wrapper">
-                         <canvas id="positionChart"></canvas>
-                     </div>
-                 </div>
-                 <div class="chart-container">
-                     <h3>Возрастная структура сотрудников</h3>
-                     <div class="chart-wrapper">
-                         <canvas id="ageChart"></canvas>
-                     </div>
-                 </div>
-             </div>
-             ` : ''}
+            `}
             
             <div class="card mt-3">
                 <div class="card-header">
-                    <h3>${selectedInst ? 'Статистика по типам учреждений' : 'Детальная статистика'}</h3>
+                    <h3>📈 Детальная статистика</h3>
                     <button class="btn-secondary btn-sm" onclick="statisticsPage.exportStats()">
-                        Экспорт в Excel
+                        📥 Экспорт в Excel
                     </button>
                 </div>
                 <div class="table-container">
@@ -325,7 +325,7 @@ ${selectedInst && institutionStats ? `
                         <tbody>
                             ${this.getTypeStats().map(stat => `
                                 <tr>
-                                    <td>${stat.type}</td>
+                                    <td><strong>${stat.type}</strong></td>
                                     <td>${stat.count}</td>
                                     <td>${stat.percent}%</td>
                                     <td>
@@ -354,13 +354,7 @@ ${selectedInst && institutionStats ? `
         const students = this.students.filter(s => s.institution_id === institution.id);
         const staff = this.staff.filter(s => s.institution_id === institution.id);
         
-        const gradeCounts = {};
-        students.forEach(s => {
-            const grade = s.grade || 'Не указан';
-            gradeCounts[grade] = (gradeCounts[grade] || 0) + 1;
-        });
-        
-const genderCounts = { male: 0, female: 0 };
+        const genderCounts = { male: 0, female: 0 };
         students.forEach(s => {
             if (s.gender === 'male') genderCounts.male++;
             else if (s.gender === 'female') genderCounts.female++;
@@ -383,7 +377,6 @@ const genderCounts = { male: 0, female: 0 };
         return {
             totalStudents: students.length,
             totalStaff: staff.length,
-            gradeCounts,
             genderCounts,
             positionCounts,
             educationCounts,
@@ -448,118 +441,154 @@ const genderCounts = { male: 0, female: 0 };
         const baseOptions = {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: 13 } } } },
-            scales: { y: { beginAtZero: true } }
+            plugins: { 
+                legend: { 
+                    display: true, 
+                    position: 'bottom', 
+                    labels: { 
+                        font: { size: 12 },
+                        padding: 20
+                    } 
+                } 
+            },
+            scales: { 
+                y: { 
+                    beginAtZero: true,
+                    ticks: { font: { size: 11 } }
+                },
+                x: {
+                    ticks: { font: { size: 11 } }
+                }
+            }
         };
         
-         if (selectedInstitutionId) {
-             const gradeCtx = document.getElementById('gradeChart');
-             if (gradeCtx) {
-                 const students = this.students.filter(s => s.institution_id === selectedInstitutionId);
-                 const gradeStats = this.getGradeStats(students);
-                 
-                 if (this.charts.grade) this.charts.grade.destroy();
-                 
-                 this.charts.grade = new Chart(gradeCtx, {
-                     type: 'bar',
-                     data: {
-                         labels: Object.keys(gradeStats),
-                         datasets: [{
-                             label: 'Учащихся',
-                             data: Object.values(gradeStats),
-                             backgroundColor: '#2563eb',
-                             borderWidth: 1
-                         }]
-                     },
-                     options: JSON.parse(JSON.stringify(baseOptions))
-                 });
-             }
-             
-             const genderCtx = document.getElementById('genderChart');
-             if (genderCtx) {
-                 const students = this.students.filter(s => s.institution_id === selectedInstitutionId);
-                 const genderCounts = { male: 0, female: 0 };
-                 students.forEach(s => {
-                     if (s.gender === 'male') genderCounts.male++;
-                     else if (s.gender === 'female') genderCounts.female++;
-                 });
-                 
-                 if (this.charts.gender) this.charts.gender.destroy();
-                 
-                 this.charts.gender = new Chart(genderCtx, {
-                     type: 'bar',
-                     data: {
-                         labels: ['Мальчики', 'Девочки'],
-                         datasets: [{
-                             data: [genderCounts.male, genderCounts.female],
-                             backgroundColor: ['#3b82f6', '#ec4899']
-                         }]
-                     },
-                      options: {
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          plugins: { legend: { display: true, position: 'bottom', labels: { font: { size: 13 } } } }
-                      }
-                 });
-             }
-             
-             const positionCtx = document.getElementById('positionChart');
-             if (positionCtx) {
-                 const staff = this.staff.filter(s => s.institution_id === selectedInstitutionId);
-                 const positionCounts = {};
-                 staff.forEach(s => {
-                     const pos = s.position || 'Не указана';
-                     positionCounts[pos] = (positionCounts[pos] || 0) + 1;
-                 });
-                 
-                 if (this.charts.position) this.charts.position.destroy();
-                 
-                 this.charts.position = new Chart(positionCtx, {
-                     type: 'bar',
-                     data: {
-                         labels: Object.keys(positionCounts),
-                         datasets: [{
-                             label: 'Сотрудников',
-                             data: Object.values(positionCounts),
-                             backgroundColor: '#8b5cf6',
-                             borderWidth: 1
-                         }]
-                     },
-                     options: JSON.parse(JSON.stringify(baseOptions))
-                 });
-             }
-             
-             const ageCtx = document.getElementById('ageChart');
-             if (ageCtx) {
-                 const staff = this.staff.filter(s => s.institution_id === selectedInstitutionId);
-                 const ageGroups = { '20-29': 0, '30-39': 0, '40-49': 0, '50-59': 0, '60+': 0 };
-                 staff.forEach(s => {
-                     const age = s.age;
-                     if (!age) return;
-                     if (age >= 20 && age <= 29) ageGroups['20-29']++;
-                     else if (age >= 30 && age <= 39) ageGroups['30-39']++;
-                     else if (age >= 40 && age <= 49) ageGroups['40-49']++;
-                     else if (age >= 50 && age <= 59) ageGroups['50-59']++;
-                     else if (age >= 60) ageGroups['60+']++;
-                 });
-                 
-                 if (this.charts.age) this.charts.age.destroy();
-                 
-                 this.charts.age = new Chart(ageCtx, {
-                     type: 'bar',
-                     data: {
-                         labels: Object.keys(ageGroups),
-                         datasets: [{
-                             label: 'Сотрудников',
-                             data: Object.values(ageGroups),
-                             backgroundColor: '#14b8a6',
-                             borderWidth: 1
-                         }]
-                     },
-                     options: JSON.parse(JSON.stringify(baseOptions))
-                 });
-             }
-         } else {
+        if (selectedInstitutionId) {
+            const gradeCtx = document.getElementById('gradeChart');
+            if (gradeCtx) {
+                const students = this.students.filter(s => s.institution_id === selectedInstitutionId);
+                const gradeStats = this.getGradeStats(students);
+                
+                if (this.charts.grade) this.charts.grade.destroy();
+                
+                this.charts.grade = new Chart(gradeCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(gradeStats).map(g => g.includes('курс') ? g : g + ' класс'),
+                        datasets: [{
+                            label: 'Учащихся',
+                            data: Object.values(gradeStats),
+                            backgroundColor: '#3b82f6',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: baseOptions
+                });
+            }
+            
+            const genderCtx = document.getElementById('genderChart');
+            if (genderCtx) {
+                const students = this.students.filter(s => s.institution_id === selectedInstitutionId);
+                const genderCounts = { male: 0, female: 0 };
+                students.forEach(s => {
+                    if (s.gender === 'male') genderCounts.male++;
+                    else if (s.gender === 'female') genderCounts.female++;
+                });
+                
+                if (this.charts.gender) this.charts.gender.destroy();
+                
+                this.charts.gender = new Chart(genderCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Мальчики', 'Девочки'],
+                        datasets: [{
+                            data: [genderCounts.male, genderCounts.female],
+                            backgroundColor: ['#3b82f6', '#ec4899'],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { 
+                            legend: { 
+                                display: true, 
+                                position: 'bottom',
+                                labels: { 
+                                    font: { size: 12 },
+                                    padding: 20
+                                } 
+                            } 
+                        }
+                    }
+                });
+            }
+            
+            const positionCtx = document.getElementById('positionChart');
+            if (positionCtx) {
+                const staff = this.staff.filter(s => s.institution_id === selectedInstitutionId);
+                const positionCounts = {};
+                staff.forEach(s => {
+                    const pos = s.position || 'Не указана';
+                    positionCounts[pos] = (positionCounts[pos] || 0) + 1;
+                });
+                
+                if (this.charts.position) this.charts.position.destroy();
+                
+                this.charts.position = new Chart(positionCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(positionCounts),
+                        datasets: [{
+                            label: 'Сотрудников',
+                            data: Object.values(positionCounts),
+                            backgroundColor: '#8b5cf6',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: baseOptions
+                });
+            }
+            
+            const educationCtx = document.getElementById('educationChart');
+            if (educationCtx) {
+                const staff = this.staff.filter(s => s.institution_id === selectedInstitutionId);
+                const educationCounts = {};
+                staff.forEach(s => {
+                    const edu = s.education || 'Не указано';
+                    educationCounts[edu] = (educationCounts[edu] || 0) + 1;
+                });
+                
+                if (this.charts.education) this.charts.education.destroy();
+                
+                this.charts.education = new Chart(educationCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: Object.keys(educationCounts),
+                        datasets: [{
+                            data: Object.values(educationCounts),
+                            backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6'],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { 
+                            legend: { 
+                                display: true, 
+                                position: 'right',
+                                labels: { 
+                                    font: { size: 11 },
+                                    padding: 15
+                                } 
+                            } 
+                        }
+                    }
+                });
+            }
+        } else {
             const typeCtx = document.getElementById('typeChart');
             if (typeCtx) {
                 const typeStats = this.getTypeStats();
@@ -572,11 +601,11 @@ const genderCounts = { male: 0, female: 0 };
                         datasets: [{
                             label: 'Учреждений',
                             data: typeStats.map(s => s.count),
-                            backgroundColor: '#2563eb',
+                            backgroundColor: '#3b82f6',
                             borderWidth: 1
                         }]
                     },
-                    options: JSON.parse(JSON.stringify(baseOptions))
+                    options: baseOptions
                 });
             }
             
@@ -585,43 +614,60 @@ const genderCounts = { male: 0, female: 0 };
                 const regionStats = this.getRegionStats();
                 if (this.charts.region) this.charts.region.destroy();
                 
-                const vals = Object.values(regionStats);
                 this.charts.region = new Chart(regionCtx, {
                     type: 'bar',
                     data: {
                         labels: Object.keys(regionStats),
                         datasets: [{
                             label: 'Количество',
-                            data: vals,
+                            data: Object.values(regionStats),
                             backgroundColor: '#10b981',
                             borderWidth: 1
                         }]
                     },
-                    options: JSON.parse(JSON.stringify(baseOptions))
+                    options: baseOptions
                 });
             }
-
+            
             const timelineCtx = document.getElementById('timelineChart');
             if (timelineCtx) {
                 const yearStats = this.getTotalStats();
                 if (this.charts.timeline) this.charts.timeline.destroy();
                 
                 this.charts.timeline = new Chart(timelineCtx, {
-                    type: 'bar',
+                    type: 'line',
                     data: {
                         labels: Object.keys(yearStats),
                         datasets: [{
                             label: 'Создано учреждений',
                             data: Object.values(yearStats),
-                            backgroundColor: '#f59e0b',
-                            borderWidth: 1
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            fill: true,
+                            tension: 0.3
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false, labels: { font: { size: 13 } } } },
-                        scales: { y: { beginAtZero: true } }
+                        plugins: { 
+                            legend: { 
+                                display: true, 
+                                position: 'top',
+                                labels: { font: { size: 12 } }
+                            } 
+                        },
+                        scales: { 
+                            y: { 
+                                beginAtZero: true,
+                                ticks: { font: { size: 11 } }
+                            },
+                            x: {
+                                ticks: { font: { size: 11 } }
+                            }
+                        }
                     }
                 });
             }
@@ -635,105 +681,98 @@ const genderCounts = { male: 0, female: 0 };
         this.render();
     },
     
-exportStats: function() {
-         const typeStats = this.getTypeStats();
-         const today = new Date().toLocaleDateString('ru-RU');
-         const totalStats = this.getTotalStats();
-         
-         // Подсчет статистики за выбранный период
-         const periodFilter = document.getElementById('periodFilter');
-         const periodValue = periodFilter ? periodFilter.value : 'all';
-         
-         let newInstitutions = 0;
-         let newStudents = 0;
-         let newStaff = 0;
-         
-         if (periodValue === 'year') {
-             const yearAgo = new Date();
-             yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-             this.institutions.forEach(inst => {
-                 if (inst.created_at && new Date(inst.created_at) >= yearAgo) newInstitutions++;
-             });
-             this.students.forEach(stud => {
-                 if (stud.created_at && new Date(stud.created_at) >= yearAgo) newStudents++;
-             });
-             this.staff.forEach(staff => {
-                 if (staff.created_at && new Date(staff.created_at) >= yearAgo) newStaff++;
-             });
-         } else if (periodValue === 'month') {
-             const monthAgo = new Date();
-             monthAgo.setMonth(monthAgo.getMonth() - 1);
-             this.institutions.forEach(inst => {
-                 if (inst.created_at && new Date(inst.created_at) >= monthAgo) newInstitutions++;
-             });
-             this.students.forEach(stud => {
-                 if (stud.created_at && new Date(stud.created_at) >= monthAgo) newStudents++;
-             });
-             this.staff.forEach(staff => {
-                 if (staff.created_at && new Date(staff.created_at) >= monthAgo) newStaff++;
-             });
-         } else {
-             newInstitutions = this.institutions.length;
-             newStudents = this.students.length;
-             newStaff = this.staff.length;
-         }
- 
-         const data = [
-             ['АИИО РБ — Автоматизация информации учреждений образования РБ'],
-             ['Статистический отчет'],
-             ['Дата формирования:', today],
-             [''],
-             ['Показатель', 'Значение'],
-             ['Новых учреждений за период', newInstitutions],
-             ['Новых учащихся за период', newStudents],
-             ['Новых работников за период', newStaff],
-             [''],
-             ['Тип учреждения', 'Количество', 'Процент'],
-         ];
- 
-         typeStats.forEach(stat => {
-             data.push([stat.type, stat.count, stat.percent + '%']);
-         });
- 
-         const ws = XLSX.utils.aoa_to_sheet(data);
- 
-         // Заголовки жирным, автоширина колонок
-         const ws_range = XLSX.utils.decode_range(ws['!ref']);
-         const col_widths = {};
-         for (let R = 0; R <= ws_range.e.r; R++) {
-             for (let C = ws_range.s.c; C <= ws_range.e.c; C++) {
-                 const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
-                 const cell = ws[cell_ref];
-                 if (!cell) continue;
-                 if (R === 0 || R === 1) {
-                     cell.s = cell.s || {};
-                     cell.s.font = { bold: true, sz: R === 0 ? 14 : 12, name: 'Calibri' };
-                     cell.s.alignment = { horizontal: 'left', vertical: 'center' };
-                 } else if (R === 4 || R === 9) {
-                     cell.s = cell.s || {};
-                     cell.s.font = { bold: true, sz: 12, name: 'Calibri' };
-                     cell.s.alignment = { horizontal: 'center', vertical: 'center' };
-                 } else {
-                     cell.s = cell.s || {};
-                     cell.s.font = { sz: 11, name: 'Calibri' };
-                     cell.s.alignment = { vertical: 'center' };
-                 }
-                 const val = String(cell.t === 'n' ? (cell.v === 0 ? '0' : cell.v) : (cell.v || ''));
-                 const w = Math.min(Math.max(val.length * 1.6, 10), 50);
-                 col_widths[C] = Math.max(col_widths[C] || 10, w);
-             }
-         }
-         ws['!cols'] = Object.values(col_widths).map(w => ({ wch: Math.round(w) }));
-         
-         // Объединение ячеек для заголовка
-         ws['!merges'] = ws['!merges'] || [];
-         ws['!merges'].push({s: {r: 0, c: 0}, e: {r: 0, c: 1}});
-         ws['!merges'].push({s: {r: 1, c: 0}, e: {r: 1, c: 1}});
-         ws['!merges'].push({s: {r: 3, c: 0}, e: {r: 3, c: 1}});
-         ws['!autofilter'] = { ref: 'A5:C' + (10 + typeStats.length) };
- 
-         const wb = XLSX.utils.book_new();
-         XLSX.utils.book_append_sheet(wb, ws, 'Статистика');
+    exportStats: function() {
+        const typeStats = this.getTypeStats();
+        const today = new Date().toLocaleDateString('ru-RU');
+        
+        const periodFilter = document.getElementById('periodFilter');
+        const periodValue = periodFilter ? periodFilter.value : 'all';
+        
+        let newInstitutions = 0;
+        let newStudents = 0;
+        let newStaff = 0;
+        
+        if (periodValue === 'year') {
+            const yearAgo = new Date();
+            yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+            this.institutions.forEach(inst => {
+                if (inst.created_at && new Date(inst.created_at) >= yearAgo) newInstitutions++;
+            });
+            this.students.forEach(stud => {
+                if (stud.created_at && new Date(stud.created_at) >= yearAgo) newStudents++;
+            });
+            this.staff.forEach(staff => {
+                if (staff.created_at && new Date(staff.created_at) >= yearAgo) newStaff++;
+            });
+        } else if (periodValue === 'month') {
+            const monthAgo = new Date();
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+            this.institutions.forEach(inst => {
+                if (inst.created_at && new Date(inst.created_at) >= monthAgo) newInstitutions++;
+            });
+            this.students.forEach(stud => {
+                if (stud.created_at && new Date(stud.created_at) >= monthAgo) newStudents++;
+            });
+            this.staff.forEach(staff => {
+                if (staff.created_at && new Date(staff.created_at) >= monthAgo) newStaff++;
+            });
+        } else {
+            newInstitutions = this.institutions.length;
+            newStudents = this.students.length;
+            newStaff = this.staff.length;
+        }
+
+        const data = [
+            ['АИИО РБ — Статистический отчет'],
+            ['Дата формирования:', today],
+            [''],
+            ['Показатель', 'Значение'],
+            ['Новых учреждений', newInstitutions],
+            ['Новых учащихся', newStudents],
+            ['Новых работников', newStaff],
+            [''],
+            ['Тип учреждения', 'Количество', 'Процент'],
+        ];
+
+        typeStats.forEach(stat => {
+            data.push([stat.type, stat.count, stat.percent + '%']);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        const ws_range = XLSX.utils.decode_range(ws['!ref']);
+        const col_widths = {};
+        for (let R = 0; R <= ws_range.e.r; R++) {
+            for (let C = ws_range.s.c; C <= ws_range.e.c; C++) {
+                const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
+                const cell = ws[cell_ref];
+                if (!cell) continue;
+                if (R === 0 || R === 8) {
+                    cell.s = cell.s || {};
+                    cell.s.font = { bold: true, sz: 13, name: 'Calibri' };
+                    cell.s.alignment = { horizontal: 'center', vertical: 'center' };
+                } else if (R === 3 || R === 9) {
+                    cell.s = cell.s || {};
+                    cell.s.font = { bold: true, sz: 11, name: 'Calibri' };
+                    cell.s.alignment = { horizontal: 'center', vertical: 'center' };
+                } else {
+                    cell.s = cell.s || {};
+                    cell.s.font = { sz: 11, name: 'Calibri' };
+                    cell.s.alignment = { vertical: 'center' };
+                }
+                const val = String(cell.t === 'n' ? (cell.v === 0 ? '0' : cell.v) : (cell.v || ''));
+                const w = Math.min(Math.max(val.length * 1.6, 10), 45);
+                col_widths[C] = Math.max(col_widths[C] || 10, w);
+            }
+        }
+        ws['!cols'] = Object.values(col_widths).map(w => ({ wch: Math.round(w) }));
+        
+        ws['!merges'] = ws['!merges'] || [];
+        ws['!merges'].push({s: {r: 0, c: 0}, e: {r: 0, c: 1}});
+        ws['!autofilter'] = { ref: 'A5:C' + (10 + typeStats.length) };
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Статистика');
 
         XLSX.writeFile(wb, 'statistics.xlsx');
 

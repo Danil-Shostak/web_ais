@@ -1267,4 +1267,108 @@ body.dark-theme .map-container {
     filter: brightness(0.85) saturate(0.9);
 }
 
+/* ========================================
+   Стили для страницы статистики
+   ======================================== */
+.institution-profile-section {
+    margin-bottom: 22px;
+}
+
+.stats-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+}
+
+.stats-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+
+.stats-grid-positions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.stat-item {
+    padding: 14px;
+    background: var(--bg-color);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.stat-item.stat-primary {
+    background: var(--primary-color);
+    color: var(--text-white);
+}
+
+.stat-item.stat-primary .stat-label,
+.stat-item.stat-primary .stat-value {
+    color: var(--text-white);
+}
+
+.stat-item.stat-male {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.stat-item.stat-female {
+    background: rgba(236, 72, 153, 0.1);
+}
+
+.stat-item.stat-position {
+    background: rgba(139, 92, 246, 0.08);
+}
+
+.stat-item.stat-education {
+    background: rgba(16, 185, 128, 0.08);
+}
+
+.stat-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.stat-value-large {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.stat-card.purple .stat-icon {
+    background: #8b5cf6;
+}
+
+.chart-wrapper {
+    height: 360px;
+}
+
+@media (max-width: 768px) {
+    .stats-grid-3 {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid-4 {
+        grid-template-columns: 1fr;
+    }
+}
+
 
