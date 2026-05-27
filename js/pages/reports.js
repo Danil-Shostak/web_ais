@@ -271,7 +271,7 @@ const reportsPage = {
         }
     },
     
-     // Генерация PDF (использует pdfmake с поддержкой кириллицы)
+// Генерация PDF (использует pdfmake с поддержкой кириллицы)
      generatePDF: async function(data, type, filename) {
          const typeLabels = {
              institution: 'Отчет по учреждению',
@@ -284,7 +284,7 @@ const reportsPage = {
              name: 'Название', short_name: 'Краткое название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
              city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
              birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
-             institution_id: 'Учреждение', is_active: 'Активен',
+             institution_id: 'Учреждение',
              parent_phone: 'Телефон родителя', position: 'Должность',
              hire_date: 'Дата приема', education: 'Образование',
              specialty: 'Специальность', website: 'Сайт', description: 'Описание',
@@ -296,7 +296,7 @@ const reportsPage = {
          
          const content = [];
          
-         // Регламент отчета
+         // Шапка отчета
          content.push({
              text: '─────────── АИИО РБ ───────────', 
              style: 'headerLine',
@@ -317,15 +317,59 @@ const reportsPage = {
              style: 'small',
              margin: [0, 0, 0, 6]
          });
+         
+         // Информация о включенных данных
+         if (type === 'students') {
+             content.push({
+                 text: `Данные отчета: ФИО, Дата рождения, Пол, Класс/Курс, Адрес, Телефон родителя, Учреждение`,
+                 style: 'small',
+                 margin: [0, 0, 0, 6]
+             });
+         } else if (type === 'staff') {
+             content.push({
+                 text: `Данные отчета: ФИО, Должность, Пол, Образование, Дата приема, Специальность, Телефон, Email, Учреждение`,
+                 style: 'small',
+                 margin: [0, 0, 0, 6]
+             });
+         } else if (type === 'institution') {
+             content.push({
+                 text: `Данные отчета: Название, Тип, Регион, Адрес, Телефон, Email, Сайт`,
+                 style: 'small',
+                 margin: [0, 0, 0, 6]
+             });
+         } else if (type === 'statistics') {
+             const startDate = document.getElementById('startDate')?.value;
+             const endDate = document.getElementById('endDate')?.value;
+             let periodText = 'За все время';
+             if (startDate && endDate) periodText = `Период: ${new Date(startDate).toLocaleDateString('ru-RU')} - ${new Date(endDate).toLocaleDateString('ru-RU')}`;
+             else if (startDate) periodText = `С ${new Date(startDate).toLocaleDateString('ru-RU')}`;
+             
+             content.push({
+                 text: `Данные отчета: Количество учреждений, учащихся, работников за выбранный период`,
+                 style: 'small',
+                 margin: [0, 0, 0, 2]
+             });
+             content.push({
+                 text: periodText,
+                 style: 'small',
+                 margin: [0, 0, 0, 6]
+             });
+         }
+         
          content.push({ text: '\n', margin: [0, 0, 0, 6] });
          
+         const institutions = this.institutions;
+         
          if (data.length > 0) {
-             const keys = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at', 'latitude', 'longitude'].includes(k));
+             const keys = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at', 'latitude', 'longitude', 'is_active'].includes(k));
              const headers = keys.map(k => ({ text: fieldLabels[k] || k, style: 'tableHeader' }));
              
              function displayValue(val, key) {
-                 if (key === 'is_active') return val === true || val === 'true' ? 'Активен' : 'Не активен';
                  if (key === 'gender') return val === 'male' ? 'Мужской' : (val === 'female' ? 'Женский' : (val === null || val === undefined || val === '' ? '—' : val));
+                 if (key === 'institution_id' && institutions) {
+                     const inst = institutions.find(i => i.id === val);
+                     return inst ? inst.name : '—';
+                 }
                  return val === null || val === undefined || val === '' ? '—' : String(val);
              }
              
@@ -401,82 +445,25 @@ const reportsPage = {
          }
      },
     
-    // Генерация Excel
-    generateExcel: function(data, type, filename) {
-        if (data.length === 0) {
-            showNotification('warning', 'Нет данных для отчета');
-            return;
-        }
-        
-        // Подготовка данных — используем русские названия столбцов
-        const fieldLabels = {
-            name: 'Название', short_name: 'Краткое название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
-            city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
-            birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
-            institution_id: 'Учреждение', is_active: 'Активен',
-            parent_phone: 'Телефон родителя', position: 'Должность',
-            hire_date: 'Дата приема', education: 'Образование',
-            specialty: 'Специальность', website: 'Сайт', description: 'Описание',
-            created_at: 'Дата создания', updated_at: 'Дата обновления',
-            license_number: 'Номер лицензии', department: 'Отдел',
-            parent_name: 'ФИО родителя', house_number: 'Номер дома'
-        };
-        
-        const excelHeaders = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at', 'latitude', 'longitude'].includes(k));
-        const translatedHeaders = excelHeaders.map(k => fieldLabels[k] || k);
-        const rows = data.map(item => excelHeaders.map(k => {
-            if (k === 'is_active') return item[k] === true || item[k] === 'true' ? 'Активен' : 'Не активен';
-            return item[k] ?? '—';
-        }));
-        
-        // Создание книги с форматированием
-        const ws_data = [translatedHeaders, ...rows];
-        const ws = XLSX.utils.aoa_to_sheet(ws_data);
-
-        // Заголовки жирным, автоширина колонок
-        const ws_range = XLSX.utils.decode_range(ws['!ref']);
-        const col_widths = {};
-        for (let R = 0; R <= ws_range.e.r; R++) {
-            for (let C = ws_range.s.c; C <= ws_range.e.c; C++) {
-                const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
-                const cell = ws[cell_ref];
-                if (!cell) continue;
-                if (R === 0) {
-                    cell.s = cell.s || {};
-                    cell.s.font = { bold: true, sz: 13, name: 'Calibri' };
-                    cell.s.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
-                } else {
-                    cell.s = cell.s || {};
-                    cell.s.font = { sz: 12, name: 'Calibri' };
-                    cell.s.alignment = { vertical: 'center', wrapText: false };
-                }
-                const val = String(cell.t === 'n' ? (cell.v === 0 ? '0' : cell.v) : (cell.v || ''));
-                const w = Math.min(Math.max(val.length * 1.8, 10), 45);
-                col_widths[C] = Math.max(col_widths[C] || 10, w);
-            }
-        }
-        ws['!cols'] = Object.values(col_widths).map(w => ({ wch: Math.round(w) }));
-        ws['!autofilter'] = { ref: ws['!ref'] };
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Отчет');
-        XLSX.writeFile(wb, filename + '.xlsx');
-    },
-    
-     // Генерация содержимого Word
-     generateDocContent: function(data, type) {
+// Генерация Excel
+     generateExcel: function(data, type, filename) {
+         if (data.length === 0) {
+             showNotification('warning', 'Нет данных для отчета');
+             return;
+         }
+         
          const typeLabels = {
              institution: 'Отчет по учреждению',
              students: 'Отчет по учащимся',
              staff: 'Отчет по работникам',
              statistics: 'Статистический отчет'
          };
-
+         
          const fieldLabels = {
              name: 'Название', short_name: 'Краткое название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
              city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
              birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
-             institution_id: 'Учреждение', is_active: 'Активен',
+             institution_id: 'Учреждение',
              parent_phone: 'Телефон родителя', position: 'Должность',
              hire_date: 'Дата приема', education: 'Образование',
              specialty: 'Специальность', website: 'Сайт', description: 'Описание',
@@ -484,7 +471,111 @@ const reportsPage = {
              license_number: 'Номер лицензии', department: 'Отдел',
              parent_name: 'ФИО родителя', house_number: 'Номер дома'
          };
-
+         
+         // Шапка отчета
+         const headerContent = [
+             ['─────────── АИИО РБ ───────────'],
+             ['АИИО РБ — Автоматизация информации учреждений образования РБ'],
+             [typeLabels[type] || 'Отчет'],
+             [`Дата формирования: ${new Date().toLocaleDateString('ru-RU')}`]
+         ];
+         
+         // Дополнительная информация в шапке
+         if (type === 'students') {
+             headerContent.push(['Данные отчета: ФИО, Дата рождения, Пол, Класс/Курс, Адрес, Телефон родителя, Учреждение']);
+         } else if (type === 'staff') {
+             headerContent.push(['Данные отчета: ФИО, Должность, Пол, Образование, Дата приема, Специальность, Телефон, Email, Учреждение']);
+         } else if (type === 'institution') {
+             headerContent.push(['Данные отчета: Название, Тип, Регион, Адрес, Телефон, Email, Сайт']);
+         } else if (type === 'statistics') {
+             const startDate = document.getElementById('startDate')?.value;
+             const endDate = document.getElementById('endDate')?.value;
+             let periodText = 'За все время';
+             if (startDate && endDate) periodText = `Период: ${new Date(startDate).toLocaleDateString('ru-RU')} - ${new Date(endDate).toLocaleDateString('ru-RU')}`;
+             else if (startDate) periodText = `С ${new Date(startDate).toLocaleDateString('ru-RU')}`;
+             headerContent.push(['Данные отчета: Количество учреждений, учащихся, работников за выбранный период']);
+             headerContent.push([periodText]);
+         }
+         
+         const institutions = this.institutions;
+         
+         const excelHeaders = Object.keys(data[0]).filter(k => !['id', 'created_at', 'updated_at', 'latitude', 'longitude', 'is_active'].includes(k));
+         const translatedHeaders = excelHeaders.map(k => fieldLabels[k] || k);
+         
+         const rows = data.map(item => excelHeaders.map(k => {
+             if (k === 'gender') {
+                 return item[k] === 'male' ? 'Мужской' : (item[k] === 'female' ? 'Женский' : '—');
+             }
+             if (k === 'institution_id' && institutions) {
+                 const inst = institutions.find(i => i.id === item[k]);
+                 return inst ? inst.name : '—';
+             }
+             return item[k] ?? '—';
+         }));
+         
+         const ws_data = [...headerContent, [''], translatedHeaders, ...rows];
+         const ws = XLSX.utils.aoa_to_sheet(ws_data);
+ 
+         const ws_range = XLSX.utils.decode_range(ws['!ref']);
+         const col_widths = {};
+         for (let R = 0; R <= ws_range.e.r; R++) {
+             for (let C = ws_range.s.c; C <= ws_range.e.c; C++) {
+                 const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
+                 const cell = ws[cell_ref];
+                 if (!cell) continue;
+                 if (R < 4 || R === 5) {
+                     cell.s = cell.s || {};
+                     cell.s.font = R < 4 ? { bold: true, sz: 11, name: 'Calibri' } : { bold: true, sz: 10, name: 'Calibri' };
+                     cell.s.alignment = { horizontal: 'left', vertical: 'center' };
+                 } else if (R === 6) {
+                     cell.s = cell.s || {};
+                     cell.s.font = { bold: true, sz: 13, name: 'Calibri' };
+                     cell.s.alignment = { horizontal: 'center', vertical: 'center' };
+                 } else {
+                     cell.s = cell.s || {};
+                     cell.s.font = { sz: 11, name: 'Calibri' };
+                     cell.s.alignment = { vertical: 'center' };
+                 }
+const val = String(cell.t === 'n' ? (cell.v === 0 ? '0' : cell.v) : (cell.v || ''));
+                  const w = Math.min(Math.max(val.length * 1.8, 10), 45);
+                  col_widths[C] = Math.max(col_widths[C] || 10, w);
+              }
+          }
+          ws['!cols'] = Object.values(col_widths).map(w => ({ wch: Math.round(w) }));
+          ws['!autofilter'] = { ref: XLSX.utils.encode_range({s: {r: 7, c: 0}, e: {r: 7 + rows.length, c: translatedHeaders.length - 1}}) };
+          
+          // Объединение ячеек для заголовка
+          ws['!merges'] = [{s: {r: 0, c: 0}, e: {r: 0, c: translatedHeaders.length - 1}}];
+ 
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Отчет');
+          XLSX.writeFile(wb, filename + '.xlsx');
+     },
+    
+// Генерация содержимого Word
+     generateDocContent: function(data, type) {
+         const typeLabels = {
+             institution: 'Отчет по учреждению',
+             students: 'Отчет по учащимся',
+             staff: 'Отчет по работникам',
+             statistics: 'Статистический отчет'
+         };
+ 
+         const fieldLabels = {
+             name: 'Название', short_name: 'Краткое название', full_name: 'ФИО', type: 'Тип', region: 'Регион',
+             city: 'Город', street: 'Улица', address: 'Адрес', phone: 'Телефон', email: 'Email',
+             birth_date: 'Дата рождения', gender: 'Пол', grade: 'Класс/Курс',
+             institution_id: 'Учреждение',
+             parent_phone: 'Телефон родителя', position: 'Должность',
+             hire_date: 'Дата приема', education: 'Образование',
+             specialty: 'Специальность', website: 'Сайт', description: 'Описание',
+             created_at: 'Дата создания', updated_at: 'Дата обновления',
+             license_number: 'Номер лицензии', department: 'Отдел',
+             parent_name: 'ФИО родителя', house_number: 'Номер дома'
+         };
+ 
+         const institutions = this.institutions;
+ 
          var content =
              '\uFEFF' +
              '\u041e\u0422\u0427\u0415\u0422\r\n' +
@@ -492,36 +583,45 @@ const reportsPage = {
              '\r\n' +
              '\u0421\u0438\u0441\u0442\u0435\u043c\u0430: \u0410\u0418\u0418\u041e \u0420\u0411 \u2014 \u0410\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0438\u044f \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u0438 \u0443\u0447\u0440\u0435\u0436\u0434\u0435\u043d\u0438\u0439 \u043e\u0431\u0440\u0430\u0437\u043e\u0432\u0430\u043d\u0438\u044f \u0420\u0411\r\n' +
              '\u0422\u0438\u043f \u043e\u0442\u0447\u0435\u0442\u0430: ' + (typeLabels[type] || type) + '\r\n' +
-             '\u0414\u0430\u0442\u0430 \u0444\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f: ' + new Date().toLocaleDateString('ru-RU') + '\r\n' +
-             '\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u0437\u0430\u043f\u0438\u0441\u0435\u0439: ' + data.length + '\r\n' +
-             '========================================\r\n' +
-             '\r\n';
-
+             '\u0414\u0430\u0442\u0430 \u0444\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f: ' + new Date().toLocaleDateString('ru-RU') + '\r\n';
+         
+         // Дополнительная информация в шапке
+         if (type === 'students') {
+             content += '\u0414\u0430\u043d\u043d\u044b\u0435 \u043e\u0442\u0447\u0435\u0442\u0430: \u0424\u0418\u041e, \u0414\u0430\u0442\u0430 \u0440\u043e\u0436\u0434\u0435\u043d\u0438\u044f, \u041f\u043e\u043b, \u041a\u043b\u0430\u0441\u0441/\u041a\u0443\u0440\u0441, \u0410\u0434\u0440\u0435\u0441, \u0422\u0435\u043b\u0435\u0444\u043e\u043d \u0440\u043e\u0434\u0438\u0442\u0435\u043b\u044f, \u0423\u0447\u0440\u0435\u0436\u0434\u0435\u043d\u0438\u0435\r\n';
+         } else if (type === 'staff') {
+             content += '\u0414\u0430\u043d\u043d\u044b\u0435 \u043e\u0442\u0447\u0435\u0442\u0430: \u0424\u0418\u041e, \u0414\u043e\u043b\u0436\u043d\u043e\u0441\u0442\u044c, \u041f\u043e\u043b, \u041e\u0431\u0440\u0430\u0437\u043e\u0432\u0430\u043d\u0438\u0435, \u0414\u0430\u0442\u0430 \u043f\u0440\u0438\u0435\u043c\u0430, \u0421\u043f\u0435\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c, \u0422\u0435\u043b\u0435\u0444\u043e\u043d, Email, \u0423\u0447\u0440\u0435\u0436\u0434\u0435\u043d\u0438\u0435\r\n';
+         } else if (type === 'institution') {
+             content += '\u0414\u0430\u043d\u043d\u044b\u0435 \u043e\u0442\u0447\u0435\u0442\u0430: \u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435, \u0422\u0438\u043f, \u0420\u0435\u0433\u0438\u043e\u043d, \u0410\u0434\u0440\u0435\u0441, \u0422\u0435\u043b\u0435\u0444\u043e\u043d, Email, \u0421\u0430\u0439\u0442\r\n';
+         }
+         
+         content += '========================================\r\n\r\n';
+ 
          if (data.length > 0) {
              const keys = Object.keys(data[0]).filter(function(k) {
-                 return !['id', 'created_at', 'updated_at'].includes(k);
+                 return !['id', 'created_at', 'updated_at', 'is_active'].includes(k);
              });
              var headers = keys.map(function(k) { return fieldLabels[k] || k; });
-
+ 
              content += headers.join(' | ') + '\r\n';
              content += headers.map(function() { return '---'; }).join('|') + '\r\n';
-
+ 
              data.forEach(function(item, index) {
                  var values = keys.map(function(k) {
-                     if (k === 'is_active') {
-                         return item[k] === true || item[k] === 'true' ? '\u0410\u043a\u0442\u0438\u0432\u0435\u043d' : '\u041d\u0435 \u0430\u043a\u0442\u0438\u0432\u0435\u043d';
-                     }
                      if (k === 'gender') {
                          return item[k] === 'male'
                              ? '\u041c\u0443\u0436\u0441\u043a\u043e\u0439'
                              : (item[k] === 'female' ? '\u0416\u0435\u043d\u0441\u043a\u0438\u0439' : '\u2014');
+                     }
+                     if (k === 'institution_id' && institutions) {
+                         const inst = institutions.find(i => i.id === item[k]);
+                         return inst ? inst.name : '\u2014';
                      }
                      return item[k] === null || item[k] === undefined || item[k] === '' ? '\u2014' : String(item[k]);
                  });
                  content += (index + 1) + '. ' + values.join(' | ') + '\r\n';
              });
          }
-
+ 
          return content;
      },
     

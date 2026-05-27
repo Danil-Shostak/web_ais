@@ -72,54 +72,97 @@ const statisticsPage = {
                     </select>
             </div>
             
-         ${selectedInst ? `
-         <div class="card mb-3">
-             <div class="card-header">
-                 <h3>Информация об учреждении</h3>
-             </div>
-             <div class="detail-grid">
-                 <div class="detail-item">
-                     <label>Тип</label>
-                     <span>${selectedInst.type || '—'}</span>
-                 </div>
-                 <div class="detail-item">
-                     <label>Регион</label>
-                     <span>${selectedInst.region || '—'}</span>
-                 </div>
-                 <div class="detail-item">
-                     <label>Адрес</label>
-                     <span>${selectedInst.address || '—'}</span>
-                 </div>
-                 <div class="detail-item">
-                     <label>Телефон</label>
-                     <span>${selectedInst.phone || '—'}</span>
-                 </div>
-                 <div class="detail-item">
-                     <label>Email</label>
-                     <span>${selectedInst.email || '—'}</span>
-                 </div>
-                 <div class="detail-item">
-                     <label>Сайт</label>
-                     <span>${selectedInst.website || '—'}</span>
-                 </div>
-             </div>
-         </div>
-         ` : ''}
-         ${selectedInst && institutionStats ? `
-         <div class="card mb-3">
-             <div class="card-header">
-                 <h3>Состав работников</h3>
-             </div>
-             <div class="detail-grid">
-                 ${Object.keys(institutionStats.positionCounts).map(pos => `
-                 <div class="detail-item">
-                     <label>${pos}</label>
-                     <span>${institutionStats.positionCounts[pos]}</span>
-                 </div>
-                 `).join('')}
-             </div>
-         </div>
-         ` : ''}
+${selectedInst ? `
+          <div class="card mb-3">
+              <div class="card-header">
+                  <h3>Информация об учреждении</h3>
+              </div>
+              <div class="detail-grid">
+                  <div class="detail-item">
+                      <label>Название</label>
+                      <span>${selectedInst.name || '—'}</span>
+                  </div>
+                  <div class="detail-item">
+                      <label>Тип</label>
+                      <span>${selectedInst.type || '—'}</span>
+                  </div>
+                  <div class="detail-item">
+                      <label>Регион</label>
+                      <span>${selectedInst.region || '—'}</span>
+                  </div>
+                  <div class="detail-item">
+                      <label>Адрес</label>
+                      <span>${selectedInst.address || '—'}</span>
+                  </div>
+                  <div class="detail-item">
+                      <label>Телефон</label>
+                      <span>${selectedInst.phone || '—'}</span>
+                  </div>
+                  <div class="detail-item">
+                      <label>Email</label>
+                      <span>${selectedInst.email || '—'}</span>
+                  </div>
+                  <div class="detail-item">
+                      <label>Сайт</label>
+                      <span>${selectedInst.website || '—'}</span>
+                  </div>
+              </div>
+          </div>
+          ` : ''}
+          ${selectedInst ? `
+          <div class="card mb-3">
+              <div class="card-header">
+                  <h3>Учащиеся</h3>
+              </div>
+              <div class="detail-grid">
+                  <div class="detail-item">
+                      <label>Всего учащихся</label>
+                      <span>${institutionStats.totalStudents || 0}</span>
+                  </div>
+                  <div class="detail-item">
+                      <label>Мальчики</label>
+                      <span>${institutionStats.genderCounts.male || 0}</span>
+                  </div>
+                  <div class="detail-item">
+                      <label>Девочки</label>
+                      <span>${institutionStats.genderCounts.female || 0}</span>
+                  </div>
+              </div>
+          </div>
+          ` : ''}
+${selectedInst && institutionStats ? `
+           <div class="card mb-3">
+               <div class="card-header">
+                   <h3>Состав работников</h3>
+               </div>
+               <div class="detail-grid">
+                   <div class="detail-item">
+                       <label>Всего работников</label>
+                       <span>${institutionStats.totalStaff || 0}</span>
+                   </div>
+                   <div class="detail-item">
+                       <label>Мужчин</label>
+                       <span>${institutionStats.staffGenderCounts.male || 0}</span>
+                   </div>
+                   <div class="detail-item">
+                       <label>Женщин</label>
+                       <span>${institutionStats.staffGenderCounts.female || 0}</span>
+                   </div>
+                   ${Object.keys(institutionStats.positionCounts).map(pos => `
+                   <div class="detail-item">
+                       <label>${pos}</label>
+                       <span>${institutionStats.positionCounts[pos]}</span>
+                   </div>
+                   `).join('')}
+                   ${Object.keys(institutionStats.educationCounts).map(edu => `
+                   <div class="detail-item">
+                       <label>Образование: ${edu}</label>
+                       <span>${institutionStats.educationCounts[edu]}</span>
+                   </div>
+                   `).join('')}
+               </div>
+           </div>
+           ` : ''}
             
             <div class="stats-grid">
                 <div class="stat-card">
@@ -317,16 +360,24 @@ const statisticsPage = {
             gradeCounts[grade] = (gradeCounts[grade] || 0) + 1;
         });
         
-        const genderCounts = { male: 0, female: 0 };
+const genderCounts = { male: 0, female: 0 };
         students.forEach(s => {
             if (s.gender === 'male') genderCounts.male++;
             else if (s.gender === 'female') genderCounts.female++;
         });
         
         const positionCounts = {};
+        const educationCounts = {};
+        const staffGenderCounts = { male: 0, female: 0 };
         staff.forEach(s => {
             const pos = s.position || 'Не указана';
             positionCounts[pos] = (positionCounts[pos] || 0) + 1;
+            
+            if (s.gender === 'male') staffGenderCounts.male++;
+            else if (s.gender === 'female') staffGenderCounts.female++;
+            
+            const edu = s.education || 'Не указано';
+            educationCounts[edu] = (educationCounts[edu] || 0) + 1;
         });
         
         return {
@@ -334,7 +385,9 @@ const statisticsPage = {
             totalStaff: staff.length,
             gradeCounts,
             genderCounts,
-            positionCounts
+            positionCounts,
+            educationCounts,
+            staffGenderCounts
         };
     },
     
@@ -582,61 +635,105 @@ const statisticsPage = {
         this.render();
     },
     
-    exportStats: function() {
-        const typeStats = this.getTypeStats();
-        const today = new Date().toLocaleDateString('ru-RU');
-
-        const data = [
-            ['АИИО РБ — Автоматизация информации учреждений образования РБ'],
-            ['Статистический отчет по типам учреждений'],
-            ['Дата формирования:', today],
-            [''],
-            ['Тип', 'Количество', 'Процент'],
-        ];
-
-        typeStats.forEach(stat => {
-            data.push([stat.type, stat.count, stat.percent + '%']);
-        });
-
-        const ws = XLSX.utils.aoa_to_sheet(data);
-
-        // Заголовки жирным, автоширина колонок
-        const ws_range = XLSX.utils.decode_range(ws['!ref']);
-        const col_widths = {};
-        for (let R = 0; R <= ws_range.e.r; R++) {
-            for (let C = ws_range.s.c; C <= ws_range.e.c; C++) {
-                const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
-                const cell = ws[cell_ref];
-                if (!cell) continue;
-                if (R === 0) {
-                    cell.s = cell.s || {};
-                    cell.s.font = { bold: true, sz: 14, name: 'Calibri' };
-                    cell.s.alignment = { horizontal: 'left', vertical: 'center' };
-                } else if (R === 4) {
-                    cell.s = cell.s || {};
-                    cell.s.font = { bold: true, sz: 12, name: 'Calibri' };
-                    cell.s.alignment = { horizontal: 'center', vertical: 'center' };
-                } else {
-                    cell.s = cell.s || {};
-                    cell.s.font = { sz: 12, name: 'Calibri' };
-                    cell.s.alignment = { vertical: 'center' };
-                }
-                const val = String(cell.t === 'n' ? (cell.v === 0 ? '0' : cell.v) : (cell.v || ''));
-                const w = Math.min(Math.max(val.length * 1.6, 10), 50);
-                col_widths[C] = Math.max(col_widths[C] || 10, w);
-            }
-        }
-        ws['!cols'] = Object.values(col_widths).map(w => ({ wch: Math.round(w) }));
-        ws['!autofilter'] = { ref: 'A5:C' + (5 + typeStats.length) };
-
-        // Объединение ячеек для заголовка
-        ws['!merges'] = ws['!merges'] || [];
-        ws['!merges'].push({s: {r: 0, c: 0}, e: {r: 0, c: 2}});
-        ws['!merges'].push({s: {r: 1, c: 0}, e: {r: 1, c: 2}});
-        ws['!merges'].push({s: {r: 2, c: 0}, e: {r: 2, c: 1}});
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Статистика');
+exportStats: function() {
+         const typeStats = this.getTypeStats();
+         const today = new Date().toLocaleDateString('ru-RU');
+         const totalStats = this.getTotalStats();
+         
+         // Подсчет статистики за выбранный период
+         const periodFilter = document.getElementById('periodFilter');
+         const periodValue = periodFilter ? periodFilter.value : 'all';
+         
+         let newInstitutions = 0;
+         let newStudents = 0;
+         let newStaff = 0;
+         
+         if (periodValue === 'year') {
+             const yearAgo = new Date();
+             yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+             this.institutions.forEach(inst => {
+                 if (inst.created_at && new Date(inst.created_at) >= yearAgo) newInstitutions++;
+             });
+             this.students.forEach(stud => {
+                 if (stud.created_at && new Date(stud.created_at) >= yearAgo) newStudents++;
+             });
+             this.staff.forEach(staff => {
+                 if (staff.created_at && new Date(staff.created_at) >= yearAgo) newStaff++;
+             });
+         } else if (periodValue === 'month') {
+             const monthAgo = new Date();
+             monthAgo.setMonth(monthAgo.getMonth() - 1);
+             this.institutions.forEach(inst => {
+                 if (inst.created_at && new Date(inst.created_at) >= monthAgo) newInstitutions++;
+             });
+             this.students.forEach(stud => {
+                 if (stud.created_at && new Date(stud.created_at) >= monthAgo) newStudents++;
+             });
+             this.staff.forEach(staff => {
+                 if (staff.created_at && new Date(staff.created_at) >= monthAgo) newStaff++;
+             });
+         } else {
+             newInstitutions = this.institutions.length;
+             newStudents = this.students.length;
+             newStaff = this.staff.length;
+         }
+ 
+         const data = [
+             ['АИИО РБ — Автоматизация информации учреждений образования РБ'],
+             ['Статистический отчет'],
+             ['Дата формирования:', today],
+             [''],
+             ['Показатель', 'Значение'],
+             ['Новых учреждений за период', newInstitutions],
+             ['Новых учащихся за период', newStudents],
+             ['Новых работников за период', newStaff],
+             [''],
+             ['Тип учреждения', 'Количество', 'Процент'],
+         ];
+ 
+         typeStats.forEach(stat => {
+             data.push([stat.type, stat.count, stat.percent + '%']);
+         });
+ 
+         const ws = XLSX.utils.aoa_to_sheet(data);
+ 
+         // Заголовки жирным, автоширина колонок
+         const ws_range = XLSX.utils.decode_range(ws['!ref']);
+         const col_widths = {};
+         for (let R = 0; R <= ws_range.e.r; R++) {
+             for (let C = ws_range.s.c; C <= ws_range.e.c; C++) {
+                 const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
+                 const cell = ws[cell_ref];
+                 if (!cell) continue;
+                 if (R === 0 || R === 1) {
+                     cell.s = cell.s || {};
+                     cell.s.font = { bold: true, sz: R === 0 ? 14 : 12, name: 'Calibri' };
+                     cell.s.alignment = { horizontal: 'left', vertical: 'center' };
+                 } else if (R === 4 || R === 9) {
+                     cell.s = cell.s || {};
+                     cell.s.font = { bold: true, sz: 12, name: 'Calibri' };
+                     cell.s.alignment = { horizontal: 'center', vertical: 'center' };
+                 } else {
+                     cell.s = cell.s || {};
+                     cell.s.font = { sz: 11, name: 'Calibri' };
+                     cell.s.alignment = { vertical: 'center' };
+                 }
+                 const val = String(cell.t === 'n' ? (cell.v === 0 ? '0' : cell.v) : (cell.v || ''));
+                 const w = Math.min(Math.max(val.length * 1.6, 10), 50);
+                 col_widths[C] = Math.max(col_widths[C] || 10, w);
+             }
+         }
+         ws['!cols'] = Object.values(col_widths).map(w => ({ wch: Math.round(w) }));
+         
+         // Объединение ячеек для заголовка
+         ws['!merges'] = ws['!merges'] || [];
+         ws['!merges'].push({s: {r: 0, c: 0}, e: {r: 0, c: 1}});
+         ws['!merges'].push({s: {r: 1, c: 0}, e: {r: 1, c: 1}});
+         ws['!merges'].push({s: {r: 3, c: 0}, e: {r: 3, c: 1}});
+         ws['!autofilter'] = { ref: 'A5:C' + (10 + typeStats.length) };
+ 
+         const wb = XLSX.utils.book_new();
+         XLSX.utils.book_append_sheet(wb, ws, 'Статистика');
 
         XLSX.writeFile(wb, 'statistics.xlsx');
 

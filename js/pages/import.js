@@ -3,10 +3,16 @@
 // ========================================
 
 const importPage = {
-    // Загрузка страницы
-    load: function() {
-        this.render();
-    },
+// Загрузка страницы
+     load: async function() {
+         try {
+             this.institutions = await api.getInstitutions({ limit: 1000 });
+         } catch (error) {
+             console.error('Error loading institutions for import:', error);
+             this.institutions = [];
+         }
+         this.render();
+     },
     
     // Рендер страницы
     render: function() {
@@ -325,72 +331,81 @@ const importPage = {
         });
     },
     
-    // Маппинг данных учащихся
-    mapStudents: function(headers, rows) {
-        return rows.map(row => {
-            const item = {};
-            headers.forEach((h, i) => {
-                const key = h.toLowerCase().trim();
-                if (key === 'фио' || key === 'фИО') item.full_name = row[i];
-                if (key === 'дата рождения') item.birth_date = row[i];
-                if (key === 'пол') item.gender = row[i] === 'М' || row[i] === 'male' ? 'male' : 'female';
-                if (key === 'учебное заведение' || key === 'учебное заведение') {
-                    // Нужен маппинг на ID -暂时简化处理
-                }
-                if (key === 'класс') item.grade = parseInt(row[i]);
-                if (key === 'адрес') item.address = row[i];
-                if (key === 'телефон родителя') item.parent_phone = row[i];
-            });
-            return item;
-        });
-    },
+// Маппинг данных учащихся
+     mapStudents: function(headers, rows) {
+         const institutions = this.institutions || [];
+         return rows.map(row => {
+             const item = {};
+             headers.forEach((h, i) => {
+                 const key = h.toLowerCase().trim();
+                 if (key === 'фио' || key === 'фИО') item.full_name = row[i];
+                 if (key === 'дата рождения') item.birth_date = row[i];
+                 if (key === 'пол') item.gender = row[i] === 'М' || row[i] === 'male' ? 'male' : 'female';
+                 if (key === 'учреждение' || key === 'учреждение образования') {
+                     const instName = row[i];
+                     const inst = institutions.find(i => i.name === instName);
+                     item.institution_id = inst ? inst.id : null;
+                 }
+                 if (key === 'класс') item.grade = parseInt(row[i]);
+                 if (key === 'адрес') item.address = row[i];
+                 if (key === 'телефон родителя') item.parent_phone = row[i];
+             });
+             return item;
+         });
+     },
+     
+     // Маппинг данных работников
+     mapStaff: function(headers, rows) {
+         const institutions = this.institutions || [];
+         return rows.map(row => {
+             const item = {};
+             headers.forEach((h, i) => {
+                 const key = h.toLowerCase().trim();
+                 if (key === 'фио' || key === 'фИО') item.full_name = row[i];
+                 if (key === 'должность') item.position = row[i];
+                 if (key === 'дата приема') item.hire_date = row[i];
+                 if (key === 'образование') item.education = row[i];
+                 if (key === 'специальность') item.specialty = row[i];
+                 if (key === 'телефон') item.phone = row[i];
+                 if (key === 'email') item.email = row[i];
+                 if (key === 'учреждение' || key === 'учреждение образования') {
+                     const instName = row[i];
+                     const inst = institutions.find(i => i.name === instName);
+                     item.institution_id = inst ? inst.id : null;
+                 }
+             });
+             return item;
+         });
+     },
     
-    // Маппинг данных работников
-    mapStaff: function(headers, rows) {
-        return rows.map(row => {
-            const item = {};
-            headers.forEach((h, i) => {
-                const key = h.toLowerCase().trim();
-                if (key === 'фио' || key === 'фИО') item.full_name = row[i];
-                if (key === 'должность') item.position = row[i];
-                if (key === 'дата приема') item.hire_date = row[i];
-                if (key === 'образование') item.education = row[i];
-                if (key === 'специальность') item.specialty = row[i];
-                if (key === 'телефон') item.phone = row[i];
-                if (key === 'email') item.email = row[i];
-            });
-            return item;
-        });
-    },
-    
-    // Скачивание шаблона
-    downloadTemplate: function(type) {
-        let data = [];
-        let filename = '';
-        
-        if (type === 'institutions') {
-            data = [['Название', 'Тип', 'Регион', 'Город', 'Улица, дом', 'Адрес (для карты)', 'Широта', 'Долгота', 'Телефон', 'Email', 'Сайт', 'Описание']];
-            data.push(['Гимназия №1', 'Общее среднее', 'Минск', 'Минск', 'ул. Ленина, 15', 'г. Минск, ул. Ленина, 15', '53.9006', '27.5590', '+375171100000', 'school1@edu.by', 'https://school1.edu.by', 'Гимназия с углубленным изучением иностранных языков']);
-            data.push(['Детский сад №5', 'Дошкольное', 'Гродно', 'Гродно', 'ул. Пушкина, 8', 'г. Гродно, ул. Пушкина, 8', '53.6727', '23.8293', '+375152100000', 'ds5@grodno.edu.by', '', 'Детский сад с ясельными группами']);
-            filename = 'template_institutions';
-        } else if (type === 'students') {
-            data = [['ФИО', 'Дата рождения', 'Пол', 'Класс', 'Адрес', 'Телефон родителя']];
-            data.push(['Иванов Иван Иванович', '2010-05-15', 'М', '5', 'ул. Пушкина, 10', '+375291234567']);
-            filename = 'template_students';
-        } else if (type === 'staff') {
-            data = [['ФИО', 'Должность', 'Дата приема', 'Образование', 'Специальность', 'Телефон', 'Email']];
-            data.push(['Петров Петр Петрович', 'Учитель', '2015-09-01', 'БГПУ', 'Математика', '+375291234567', 'petrov@edu.by']);
-            filename = 'template_staff';
-        }
-        
-        const ws = XLSX.utils.aoa_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Шаблон');
-        XLSX.writeFile(wb, filename + '.xlsx');
-        
-        showNotification('success', 'Шаблон загружен');
-    }
-};
+// Скачивание шаблона
+     downloadTemplate: function(type) {
+         let data = [];
+         let filename = '';
+         
+         if (type === 'institutions') {
+             data = [['Название', 'Тип', 'Регион', 'Город', 'Улица, дом', 'Адрес (для карты)', 'Широта', 'Долгота', 'Телефон', 'Email', 'Сайт', 'Описание']];
+             data.push(['Гимназия №1', 'Общее среднее', 'Минск', 'Минск', 'ул. Ленина, 15', 'г. Минск, ул. Ленина, 15', '53.9006', '27.5590', '+375171100000', 'school1@edu.by', 'https://school1.edu.by', 'Гимназия с углубленным изучением иностранных языков']);
+             data.push(['Детский сад №5', 'Дошкольное', 'Гродно', 'Гродно', 'ул. Пушкина, 8', 'г. Гродно, ул. Пушкина, 8', '53.6727', '23.8293', '+375152100000', 'ds5@grodno.edu.by', '', 'Детский сад с ясельными группами']);
+             filename = 'template_institutions';
+         } else if (type === 'students') {
+             data = [['ФИО', 'Дата рождения', 'Пол', 'Класс', 'Адрес', 'Телефон родителя', 'Учреждение']];
+             data.push(['Иванов Иван Иванович', '2010-05-15', 'М', '5', 'ул. Пушкина, 10', '+375291234567', 'Гимназия №1']);
+             filename = 'template_students';
+         } else if (type === 'staff') {
+             data = [['ФИО', 'Должность', 'Дата приема', 'Образование', 'Специальность', 'Телефон', 'Email', 'Учреждение']];
+             data.push(['Петров Петр Петрович', 'Учитель', '2015-09-01', 'БГПУ', 'Математика', '+375291234567', 'petrov@edu.by', 'Гимназия №1']);
+             filename = 'template_staff';
+         }
+         
+         const ws = XLSX.utils.aoa_to_sheet(data);
+         const wb = XLSX.utils.book_new();
+         XLSX.utils.book_append_sheet(wb, ws, 'Шаблон');
+         XLSX.writeFile(wb, filename + '.xlsx');
+         
+         showNotification('success', 'Шаблон загружен');
+     }
+ };
 
 // Экспорт
 window.importPage = importPage;
